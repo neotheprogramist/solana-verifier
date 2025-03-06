@@ -19,7 +19,7 @@ mod verify;
 // declare and export the program's entrypoint
 entrypoint!(process_instruction_data);
 
-pub const PROGRAM_ID: &str = "HbyQVcEA8R6fp7SA6YbJsLNZsBcWjPgHckng1ZZGfUm2";
+pub const PROGRAM_ID: &str = "ANH87aBZFKHhB3aLAndnp8cJd8QNL58buSeLCtVb1ukj";
 
 #[repr(u8)]
 #[derive(Serialize, Deserialize)]
@@ -36,6 +36,22 @@ pub struct ProofAccount {
     pub cache: Cache,                      // Inner-task data.
     pub intermediate: Intermediate, // Values calculated while proving, and used for subsequent tasks.
     pub schedule: Schedule<RawTask, 1000>, // Tasks remaining to be executed.
+}
+
+impl ProofAccount {
+    pub fn flow(&mut self) -> usize {
+        let account_data = bytemuck::bytes_of_mut(self);
+        let mut stage = VerificationStage::Publish;
+        stage = process_instruction(Entrypoint::Schedule, account_data, stage).unwrap();
+
+        let mut c = 0;
+        while stage != VerificationStage::Verified {
+            stage = process_instruction(Entrypoint::VerifyProof, account_data, stage).unwrap();
+            c += 1;
+        }
+
+        c
+    }
 }
 
 #[derive(Debug, Clone, Copy, Default, Zeroable, Pod, PartialEq)]
@@ -87,8 +103,8 @@ pub fn process_instruction_data(
 }
 
 // program entrypoint's implementation
-pub fn process_instruction<'a>(
-    instruction: Entrypoint<'a>,
+pub fn process_instruction(
+    instruction: Entrypoint<'_>,
     account_data: &mut [u8],
     stage: VerificationStage,
 ) -> Result<VerificationStage, ProgramError> {
@@ -108,13 +124,13 @@ pub fn process_instruction<'a>(
                 return Err(ProgramError::Custom(8));
             }
 
-            let ProofAccount { schedule, .. } =
-                bytemuck::from_bytes_mut::<ProofAccount>(account_data);
-
-            schedule.flush();
-            schedule.push(Tasks::VerifyProofWithoutStark.into());
-
             msg!("Schedule");
+
+            let proof_account = bytemuck::from_bytes_mut::<ProofAccount>(account_data);
+            proof_account.schedule.flush();
+            proof_account
+                .schedule
+                .push(Tasks::VerifyProofWithoutStark.into());
 
             VerificationStage::Verify
         }
@@ -136,26 +152,22 @@ pub fn process_instruction<'a>(
             } = bytemuck::from_bytes_mut::<ProofAccount>(account_data);
 
             let Some(task) = schedule.next() else {
-                return Err(ProgramError::Custom(3));
+                return Ok(VerificationStage::Verified);
             };
 
-            let task = Tasks::try_from(task)?;
-            let task_name = format!("{:?}", task);
-            msg!("Executing task: {}", task_name);
+            let task = Tasks::try_from(&task)?;
+            // let task_name = format!("{:?}", task);
+            // msg!("Executing task: {}", task_name);
 
             let mut task = task.view(proof, cache, intermediate);
-
-            let children = task.execute().unwrap();
-
+            let children = task.execute();
             schedule.push_slice(
                 &children
-                    .iter()
-                    .copied()
-                    .map(|c| c.into())
+                    .into_iter()
+                    .map(From::from)
+                    .rev()
                     .collect::<Vec<_>>(),
             );
-
-            // return Err(ProgramError::Custom(42));
 
             if schedule.finished() {
                 VerificationStage::Verified
@@ -173,25 +185,9 @@ mod tests {
     use super::*;
     use swiftness::{TransformTo, parse};
 
-    pub fn read_proof() -> ProofAccount {
-        let small_json = include_str!("../resources/saya.json");
-        let stark_proof = parse(small_json).unwrap();
-        let proof = stark_proof.transform_to();
-
-        ProofAccount {
-            proof,
-            ..Default::default()
-        }
-    }
-
     pub fn read_proof_from_file() -> Vec<u8> {
-        // For some reason `include_bytes` returns different bytes.
-        // let account_data = include_bytes!("../resources/proof.bin");        let account_data = std::fs::read("resources/proof.bin").unwrap();
-        let account_data = std::fs::read("resources/proof.bin").unwrap();
-
-        // Casting first to ensure data is in fact a ProofAccount.
+        let account_data = include_bytes!("../resources/proof.bin").to_vec();
         let account = bytemuck::from_bytes::<ProofAccount>(&account_data);
-
         bytemuck::bytes_of(account).to_vec()
     }
 
@@ -208,33 +204,23 @@ mod tests {
         };
         let account_data = bytemuck::bytes_of(&proof_account);
 
-        std::fs::write("resources/proof.bin", account_data).unwrap();
-        let account_data = std::fs::read("resources/proof.bin").unwrap();
+        let account_data_path = "resources/proof.bin";
+
+        std::fs::write(account_data_path, account_data).unwrap();
+        let account_data = std::fs::read(account_data_path).unwrap();
         let read_proof_account = bytemuck::from_bytes::<ProofAccount>(&account_data);
 
         assert_eq!(&proof_account, read_proof_account);
-
-        // let account_data = include_bytes!("../resources/proof.bin");
-        // let proof_account = bytemuck::from_bytes::<ProofAccount>(account_data);
-
-        // assert_eq!(&proof_account, &read_proof_account);
     }
 
     #[test]
-    fn test_deserialize_proof() {
+    fn test_verify_proof() {
         let account_data = &mut read_proof_from_file()[..];
 
-        let mut stage = VerificationStage::Publish;
+        let proof_account = bytemuck::from_bytes_mut::<ProofAccount>(account_data);
+        let c = proof_account.flow();
 
-        stage = process_instruction(Entrypoint::Schedule, account_data, stage).unwrap();
-        let mut c = 0;
-
-        while stage != VerificationStage::Verified {
-            stage = process_instruction(Entrypoint::VerifyProof, account_data, stage).unwrap();
-            c += 1;
-        }
-
-        assert_eq!(c, 6);
+        assert_eq!(c, 190);
 
         let ProofAccount { intermediate, .. } = bytemuck::from_bytes::<ProofAccount>(account_data);
 

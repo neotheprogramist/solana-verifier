@@ -12,7 +12,9 @@ use swiftness_air::swiftness_commitment::table::decommit::table_decommit;
 use crate::Cache;
 use crate::intermediate::Intermediate;
 use crate::task::Task;
-use crate::task::TaskResult;
+use crate::task::Tasks;
+
+use super::fri_verify::fri_verify_layers::layer::StarkVerifyLayerTask;
 
 pub struct TableDecommitTask<'a> {
     pub cache: &'a mut TableDecommitCache,
@@ -28,8 +30,8 @@ pub struct TableDecommitCache {
     pub commitment: CacheCommitment, // TODO: minimize this;
 }
 
-impl<'a> Task for TableDecommitTask<'a> {
-    fn execute(&mut self) -> TaskResult {
+impl Task for TableDecommitTask<'_> {
+    fn execute(&mut self) -> Vec<Tasks> {
         table_decommit(
             &mut self.cache.commitment,
             self.commitment,
@@ -37,9 +39,13 @@ impl<'a> Task for TableDecommitTask<'a> {
             self.decommitment,
             self.witness,
         )
-        .map_err(|_| ())?;
+        .unwrap();
 
-        Ok(vec![])
+        self.children()
+    }
+
+    fn children(&self) -> Vec<Tasks> {
+        vec![]
     }
 }
 
@@ -51,17 +57,20 @@ pub enum TableDecommitTarget {
     Original = 1,
     Interaction = 2,
     Composition = 3,
+    Fri(u8) = 4,
 }
 
-impl TryFrom<u8> for TableDecommitTarget {
+impl TryFrom<[u8; 2]> for TableDecommitTarget {
     type Error = ProgramError;
 
-    fn try_from(value: u8) -> Result<Self, Self::Error> {
-        match value {
+    fn try_from(value: [u8; 2]) -> Result<Self, Self::Error> {
+        let [variant, fri] = value;
+        match variant {
             0 => Ok(TableDecommitTarget::Invalid),
             1 => Ok(TableDecommitTarget::Original),
             2 => Ok(TableDecommitTarget::Interaction),
             3 => Ok(TableDecommitTarget::Composition),
+            4 => Ok(TableDecommitTarget::Fri(fri)),
             _ => Err(ProgramError::Custom(17)),
         }
     }
@@ -74,6 +83,10 @@ impl<'a> TableDecommitTask<'a> {
         cache: &'a mut Cache,
         intermediate: &'a mut Intermediate,
     ) -> Self {
+        if let TableDecommitTarget::Fri(i) = variant {
+            return StarkVerifyLayerTask::view(i as usize, proof, cache, intermediate).into();
+        }
+
         let queries = intermediate.verify.queries.as_slice();
         let cache = &mut cache.table;
 
@@ -103,6 +116,7 @@ impl<'a> TableDecommitTask<'a> {
                 decommitment: &proof.witness.composition_decommitment,
                 witness: &proof.witness.composition_witness,
             },
+            TableDecommitTarget::Fri(_) => unreachable!("Fri is handled above"),
             TableDecommitTarget::Invalid => unreachable!("TableDecommitTarget::Invalid"),
         }
     }

@@ -1,4 +1,4 @@
-use swiftness::{commit::stark_commit, queries::generate_queries, stark::Error, types::CacheStark};
+use swiftness::stark::Error;
 use swiftness_air::{
     Transcript,
     domains::StarkDomains,
@@ -12,19 +12,20 @@ use crate::{
     task::{Task, Tasks},
 };
 
+pub mod generate_queries;
+pub mod stark_commit;
 pub mod stark_verify;
 pub mod verify_output;
 
 #[derive(Debug)]
 pub struct VerifyProofTask<'a> {
     proof: &'a mut StarkProof,
-    cache: &'a mut CacheStark,
     intermediate: &'a mut VerifyIntermediate,
 }
 
-impl<'a> Task for VerifyProofTask<'a> {
+impl Task for VerifyProofTask<'_> {
     // let _res = self.proof.verify::<Layout>(self.cache, security_bits);
-    fn execute(&mut self) -> Result<Vec<Tasks>, ()> {
+    fn execute(&mut self) -> Vec<Tasks> {
         let security_bits = self.proof.config.security_bits();
 
         let VerifyIntermediate {
@@ -32,8 +33,7 @@ impl<'a> Task for VerifyProofTask<'a> {
             n_interaction_columns,
             stark_domains,
             transcript,
-            stark_commitment,
-            queries,
+            ..
         } = self.intermediate;
 
         *n_original_columns = Layout::get_num_columns_first(&self.proof.public_input)
@@ -59,7 +59,7 @@ impl<'a> Task for VerifyProofTask<'a> {
             self.proof.config.log_n_cosets,
         );
 
-        Layout::validate_public_input(&self.proof.public_input, &stark_domains).unwrap();
+        Layout::validate_public_input(&self.proof.public_input, stark_domains).unwrap();
 
         // Compute the initial hash seed for the Fiat-Shamir transcript.
         // Construct the transcript.
@@ -69,38 +69,27 @@ impl<'a> Task for VerifyProofTask<'a> {
                 .get_hash(self.proof.config.n_verifier_friendly_commitment_layers),
         );
 
-        // STARK commitment phase.
-        stark_commit(
-            stark_commitment,
-            self.cache,
-            transcript,
-            &self.proof.public_input,
-            &self.proof.unsent_commitment,
-            &self.proof.config,
-            &stark_domains,
-        )
-        .unwrap();
+        self.children()
+    }
 
-        // Generate queries.
-        queries.move_to(generate_queries(
-            transcript,
-            self.proof.config.n_queries,
-            stark_domains.eval_domain_size,
-        ));
-
-        Ok(vec![Tasks::StarkVerify, Tasks::VerifyOutput])
+    fn children(&self) -> Vec<Tasks> {
+        vec![
+            Tasks::StarkCommit,
+            Tasks::GenerateQueries,
+            Tasks::StarkVerify,
+            Tasks::VerifyOutput,
+        ]
     }
 }
 
 impl<'a> VerifyProofTask<'a> {
     pub fn view(
         proof: &'a mut StarkProof,
-        cache: &'a mut Cache,
+        _cache: &'a mut Cache,
         intermediate: &'a mut Intermediate,
     ) -> Self {
         VerifyProofTask {
             proof,
-            cache: &mut cache.legacy.stark,
             intermediate: &mut intermediate.verify,
         }
     }

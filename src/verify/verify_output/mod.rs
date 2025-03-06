@@ -8,7 +8,7 @@ use swiftness_air::public_memory::PublicInput;
 use crate::Cache;
 use crate::intermediate::Intermediate;
 use crate::task::Task;
-use crate::task::TaskResult;
+use crate::task::Tasks;
 
 pub struct VerifyOutputTask<'a> {
     pub public_input: &'a PublicInput,
@@ -16,14 +16,18 @@ pub struct VerifyOutputTask<'a> {
     pub program_hash: &'a mut Felt,
 }
 
-impl<'a> Task for VerifyOutputTask<'a> {
-    fn execute(&mut self) -> TaskResult {
-        let (program_hash, output) = Layout::verify_public_input(&self.public_input).unwrap();
+impl Task for VerifyOutputTask<'_> {
+    fn execute(&mut self) -> Vec<Tasks> {
+        let (program_hash, output) = Layout::verify_public_input(self.public_input).unwrap();
 
         *self.program_hash = program_hash;
         self.output.move_to(output);
 
-        Ok(vec![])
+        self.children()
+    }
+
+    fn children(&self) -> Vec<Tasks> {
+        vec![]
     }
 }
 

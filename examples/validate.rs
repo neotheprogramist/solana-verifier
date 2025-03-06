@@ -9,9 +9,9 @@ use solana_sdk::{
     signer::{EncodableKey, Signer},
     transaction::Transaction,
 };
-use solana_verifier::{Entrypoint, ProofAccount, PROGRAM_ID};
+use solana_verifier::{Entrypoint, PROGRAM_ID, ProofAccount};
 use std::{path::PathBuf, str::FromStr};
-use swiftness::{parse, types::StarkProof, TransformTo};
+use swiftness::{TransformTo, parse, types::StarkProof};
 
 #[derive(Debug, Deserialize)]
 #[non_exhaustive]
@@ -51,7 +51,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let ix = Instruction {
         program_id: Pubkey::from_str(PROGRAM_ID)?,
         accounts: vec![AccountMeta::new(data_address, false)],
-        data: bincode::serialize(&Entrypoint::VerifyProof {}).unwrap(),
+        data: bincode::serialize(&Entrypoint::VerifyProof).unwrap(),
     };
 
     let blockhash = client.get_latest_blockhash().await?;
