@@ -65,11 +65,11 @@ impl Task for VerifyProofTask<'_> {
 
     fn children(&self) -> Vec<Tasks> {
         vec![
-            // Tasks::InitTranscript,
-            // Tasks::StarkCommit,
-            // Tasks::GenerateQueries,
-            // Tasks::StarkVerify,
-            // Tasks::VerifyOutput,
+            Tasks::InitTranscript,
+            Tasks::StarkCommit,
+            Tasks::GenerateQueries,
+            Tasks::StarkVerify,
+            Tasks::VerifyOutput,
         ]
     }
 }
