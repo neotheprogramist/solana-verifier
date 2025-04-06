@@ -1,6 +1,5 @@
 use swiftness::stark::Error;
 use swiftness_air::{
-    Transcript,
     domains::StarkDomains,
     layout::{GenericLayoutTrait, LayoutTrait, recursive_with_poseidon::Layout},
 };
@@ -13,6 +12,7 @@ use crate::{
 };
 
 pub mod generate_queries;
+pub mod init_transcript;
 pub mod stark_commit;
 pub mod stark_verify;
 pub mod verify_output;
@@ -32,7 +32,6 @@ impl Task for VerifyProofTask<'_> {
             n_original_columns,
             n_interaction_columns,
             stark_domains,
-            transcript,
             ..
         } = self.intermediate;
 
@@ -61,23 +60,16 @@ impl Task for VerifyProofTask<'_> {
 
         Layout::validate_public_input(&self.proof.public_input, stark_domains).unwrap();
 
-        // Compute the initial hash seed for the Fiat-Shamir transcript.
-        // Construct the transcript.
-        *transcript = Transcript::new(
-            self.proof
-                .public_input
-                .get_hash(self.proof.config.n_verifier_friendly_commitment_layers),
-        );
-
         self.children()
     }
 
     fn children(&self) -> Vec<Tasks> {
         vec![
-            Tasks::StarkCommit,
-            Tasks::GenerateQueries,
-            Tasks::StarkVerify,
-            Tasks::VerifyOutput,
+            // Tasks::InitTranscript,
+            // Tasks::StarkCommit,
+            // Tasks::GenerateQueries,
+            // Tasks::StarkVerify,
+            // Tasks::VerifyOutput,
         ]
     }
 }

@@ -3,7 +3,7 @@ use solana_rpc_client::nonblocking::rpc_client::RpcClient;
 use solana_sdk::{
     instruction::{AccountMeta, Instruction},
     pubkey::Pubkey,
-    signature::Keypair,
+    signature::{Keypair, Signature},
     signer::{EncodableKey, Signer},
     system_instruction,
     transaction::Transaction,
@@ -15,40 +15,65 @@ use tokio::fs;
 const CHUNK_SIZE: usize = 500;
 
 async fn send_transactions(config: &SolanaConfig, instructions: &[Instruction]) {
-    let mut handles = Vec::new();
+    let (client, payer) = config.get_client();
+
     for (i, instruction) in instructions.iter().enumerate() {
-        let instruction = instruction.clone();
-        let (client, payer) = config.get_client();
+        // Process each instruction one by one
+        loop {
+            let result = create_and_send_transaction_without_confirmation(
+                &client,
+                &payer,
+                &[instruction.clone()],
+            )
+            .await;
 
-        handles.push(tokio::spawn(async move {
-            loop {
-                let blockhash = client
-                    .get_latest_blockhash()
-                    .await
-                    .expect("failed to connect to rpc");
-
-                // Create corresponding transactions
-                let tx = Transaction::new_signed_with_payer(
-                    &[instruction.clone()],
-                    Some(&payer.pubkey()),
-                    &[&payer],
-                    blockhash,
-                );
-
-                let result = client.send_transaction(&tx).await;
-
-                if result.is_ok() {
-                    break;
-                }
-
-                println!("Failed to send transaction: {i}, repeating.");
+            if result.is_ok() {
+                break;
             }
-        }));
+
+            println!("Failed to send transaction: {i}, repeating.");
+            sleep(Duration::from_millis(100));
+        }
     }
 
-    futures::future::join_all(handles).await;
+    println!(
+        "Sent all {} publish instructions sequentially",
+        instructions.len()
+    );
+}
 
-    println!("Sent publish instructions");
+async fn create_and_send_transaction_without_confirmation(
+    client: &RpcClient,
+    payer: &Keypair,
+    instructions: &[Instruction],
+) -> Result<Signature, Box<dyn std::error::Error>> {
+    let blockhash = client.get_latest_blockhash().await?;
+    let transaction = Transaction::new_signed_with_payer(
+        instructions,
+        Some(&payer.pubkey()),
+        &[payer],
+        blockhash,
+    );
+
+    let signature = client.send_transaction(&transaction).await?;
+    Ok(signature)
+}
+
+async fn create_and_send_transaction_with_confirmation(
+    client: &RpcClient,
+    payer: &Keypair,
+    instructions: &[Instruction],
+) -> Result<Signature, Box<dyn std::error::Error>> {
+    let blockhash = client.get_latest_blockhash().await?;
+    let transaction = Transaction::new_signed_with_payer(
+        instructions,
+        Some(&payer.pubkey()),
+        &[payer],
+        blockhash,
+    );
+
+    let signature = client.send_and_confirm_transaction(&transaction).await?;
+    Ok(signature)
 }
 
 pub async fn read_proof_account() -> Box<ProofAccount> {
@@ -116,6 +141,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let account = read_proof_account().await;
     let stark_proof = bytemuck::bytes_of(&*account);
 
+    let needed_tx = get_needed_tx(&stark_proof);
+    println!("needed_tx: {}", needed_tx);
+
     let proof_data_account = Keypair::new();
     let program_id = Pubkey::from_str(PROGRAM_ID)?;
 
@@ -163,7 +191,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!("proof_data_account correct!");
             break;
         } else {
-            println!("proof_data_account data not matching!");
+            println!("waiting proof_data_account data to match!");
             sleep(Duration::from_secs(1));
         }
     }
@@ -180,25 +208,55 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         data: bincode::serialize(&Entrypoint::VerifyProof).unwrap(),
     };
 
-    let needed_tx = get_needed_tx(&stark_proof);
-
-    let mut verify_ixs = (0..needed_tx + 1)
+    let mut verify_ixs = (0..needed_tx)
         .map(|_| verify_ix.clone())
         .collect::<Vec<_>>();
     verify_ixs.insert(0, schedule_ix);
 
-    let blockhash = client.get_latest_blockhash().await.unwrap();
-    let transaction = Transaction::new_signed_with_payer(
-        &verify_ixs,
-        Some(&payer.pubkey()),
-        &[&payer],
-        blockhash,
-    );
+    let max_instructions_per_tx = 1;
+    let mut batches: Vec<Vec<Instruction>> = Vec::new();
 
-    client
-        .send_and_confirm_transaction(&transaction)
-        .await
-        .unwrap();
+    let mut current_batch: Vec<Instruction> = Vec::new();
+
+    for ix in verify_ixs {
+        current_batch.push(ix);
+
+        // Create a new batch when we reach the limit
+        if current_batch.len() >= max_instructions_per_tx {
+            batches.push(current_batch);
+            current_batch = Vec::new();
+        }
+    }
+
+    // Add any remaining instructions to the last batch
+    if !current_batch.is_empty() {
+        batches.push(current_batch);
+    }
+
+    println!("Split into {} transactions", batches.len());
+
+    // Send each batch as a separate transaction
+    for (i, batch) in batches.iter().enumerate() {
+        println!(
+            "Sending transaction {}/{} with {} instructions",
+            i + 1,
+            batches.len(),
+            batch.len()
+        );
+
+        match create_and_send_transaction_with_confirmation(&client, &payer, batch).await {
+            Ok(signature) => println!(
+                "Transaction {}/{} confirmed, signature: {}",
+                i + 1,
+                batches.len(),
+                signature
+            ),
+            Err(err) => {
+                println!("Transaction {}/{} failed: {}", i + 1, batches.len(), err);
+                return Err(format!("Transaction failed: {}", err).into());
+            }
+        }
+    }
 
     Ok(())
 }

@@ -19,7 +19,7 @@ mod verify;
 // declare and export the program's entrypoint
 entrypoint!(process_instruction_data);
 
-pub const PROGRAM_ID: &str = "ANH87aBZFKHhB3aLAndnp8cJd8QNL58buSeLCtVb1ukj";
+pub const PROGRAM_ID: &str = "8e1RKy1QaU8reE1WJwurQnTAWgZKsVWwPbjpgkb1vWbe";
 
 #[repr(u8)]
 #[derive(Serialize, Deserialize)]
@@ -124,13 +124,13 @@ pub fn process_instruction(
                 return Err(ProgramError::Custom(8));
             }
 
-            msg!("Schedule");
+            msg!("Executing Schedule");
 
             let proof_account = bytemuck::from_bytes_mut::<ProofAccount>(account_data);
             proof_account.schedule.flush();
             proof_account
                 .schedule
-                .push(Tasks::VerifyProofWithoutStark.into());
+                .push(Tasks::VerifyProof.into());
 
             VerificationStage::Verify
         }
@@ -156,8 +156,8 @@ pub fn process_instruction(
             };
 
             let task = Tasks::try_from(&task)?;
-            // let task_name = format!("{:?}", task);
-            // msg!("Executing task: {}", task_name);
+            let task_name = format!("{:?}", task);
+            msg!("Executing task: {}", task_name);
 
             let mut task = task.view(proof, cache, intermediate);
             let children = task.execute();

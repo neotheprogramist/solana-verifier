@@ -1,3 +1,4 @@
+use solana_program::msg;
 use swiftness::funvec::FunVec;
 use swiftness::oods::OodsEvaluationInfo;
 use swiftness::oods::eval_oods_boundary_poly_at_points;
@@ -42,6 +43,7 @@ pub struct StarkVerifyIntermediate {
 impl Task for StarkVerifyTask<'_> {
     // stark_verify::<Layout>(
     fn execute(&mut self) -> Vec<Tasks> {
+        msg!("StarkVerifyTask");
         let StarkVerifyTask {
             cache,
             n_original_columns,

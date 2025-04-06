@@ -64,59 +64,59 @@ impl Task for StarkCommitTask<'_> {
             result: _result,
         } = self;
 
-        intermediate.traces_commitment =
-            Layout::traces_commit(transcript, &unsent_commitment.traces, config.traces);
+        // intermediate.traces_commitment =
+        //     Layout::traces_commit(transcript, &unsent_commitment.traces, config.traces);
 
-        // Generate interaction values after traces commitment.
-        intermediate.composition_alpha = transcript.random_felt_to_prover();
-        powers_array(
-            cache
-                .powers_array
-                .powers_array
-                .unchecked_slice_mut(Layout::N_CONSTRAINTS),
-            Felt::ONE,
-            intermediate.composition_alpha,
-            Layout::N_CONSTRAINTS as u32,
-        );
-        let traces_coefficients = cache
-            .powers_array
-            .powers_array
-            .unchecked_slice(Layout::N_CONSTRAINTS);
+        // // Generate interaction values after traces commitment.
+        // intermediate.composition_alpha = transcript.random_felt_to_prover();
+        // powers_array(
+        //     cache
+        //         .powers_array
+        //         .powers_array
+        //         .unchecked_slice_mut(Layout::N_CONSTRAINTS),
+        //     Felt::ONE,
+        //     intermediate.composition_alpha,
+        //     Layout::N_CONSTRAINTS as u32,
+        // );
+        // let traces_coefficients = cache
+        //     .powers_array
+        //     .powers_array
+        //     .unchecked_slice(Layout::N_CONSTRAINTS);
 
-        // Read composition commitment.
-        intermediate.composition_commitment = table_commit(
-            transcript,
-            unsent_commitment.composition,
-            config.composition,
-        );
+        // // Read composition commitment.
+        // intermediate.composition_commitment = table_commit(
+        //     transcript,
+        //     unsent_commitment.composition,
+        //     config.composition,
+        // );
 
-        // Generate interaction values after composition.
-        intermediate.interaction_after_composition = transcript.random_felt_to_prover();
+        // // Generate interaction values after composition.
+        // intermediate.interaction_after_composition = transcript.random_felt_to_prover();
 
-        // Read OODS values.
-        transcript.read_felt_vector_from_prover(&unsent_commitment.oods_values.to_vec());
+        // // Read OODS values.
+        // transcript.read_felt_vector_from_prover(&unsent_commitment.oods_values.to_vec());
 
-        // // Check that the trace and the composition agree at oods_point.
-        verify_oods::<Layout>(
-            cache.commitment.verify_oods.inner(),
-            unsent_commitment.oods_values.as_slice(),
-            &intermediate.traces_commitment.interaction_elements,
-            public_input,
-            traces_coefficients,
-            &intermediate.interaction_after_composition,
-            &stark_domains.trace_domain_size,
-            &stark_domains.trace_generator,
-        )
-        .unwrap();
+        // // // Check that the trace and the composition agree at oods_point.
+        // verify_oods::<Layout>(
+        //     cache.commitment.verify_oods.inner(),
+        //     unsent_commitment.oods_values.as_slice(),
+        //     &intermediate.traces_commitment.interaction_elements,
+        //     public_input,
+        //     traces_coefficients,
+        //     &intermediate.interaction_after_composition,
+        //     &stark_domains.trace_domain_size,
+        //     &stark_domains.trace_generator,
+        // )
+        // .unwrap();
 
         self.children()
     }
 
     fn children(&self) -> Vec<Tasks> {
         vec![
-            Tasks::StarkCommitOodsCoef,
-            Tasks::StarkCommitFri,
-            Tasks::StarkCommitAssign,
+            // Tasks::StarkCommitOodsCoef,
+            // Tasks::StarkCommitFri,
+            // Tasks::StarkCommitAssign,
         ]
     }
 }

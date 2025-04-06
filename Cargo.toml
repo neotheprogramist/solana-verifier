@@ -17,8 +17,8 @@ custom-panic = []
 
 [dependencies]
 bincode = "1.3.3"
-bytemuck = "1.21.0"
-serde = { version = "1.0.217", features = ["derive"] }
+bytemuck = "1.22.0"
+serde = { version = "1.0.219", features = ["derive"] }
 solana-program = { git = "https://github.com/Okm165/solana.git", branch = "fix/deps" }
 swiftness_air = { path = "../swiftness/crates/air", default-features = false, features = [
     "recursive_with_poseidon",
@@ -56,9 +56,9 @@ swiftness_proof_parser = { path = "../swiftness/proof_parser" }
 # ] }
 
 [dev-dependencies]
-solana-rpc-client = "2.0.9"
-solana-rpc-client-api = "2.0.9"
-solana-sdk = { version = "2.0.9", features = ["borsh"] }
-tokio = "1.40.0"
-futures = "0.3.30"
+solana-rpc-client = "2.2.6"
+solana-rpc-client-api = "2.2.6"
+solana-sdk = { version = "2.2.2", features = ["borsh"] }
+tokio = "1.44.2"
+futures = "0.3.31"
 serde_yaml = "0.9.34"
