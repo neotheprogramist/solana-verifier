@@ -19,7 +19,7 @@ mod verify;
 // declare and export the program's entrypoint
 entrypoint!(process_instruction_data);
 
-pub const PROGRAM_ID: &str = "8e1RKy1QaU8reE1WJwurQnTAWgZKsVWwPbjpgkb1vWbe";
+pub const PROGRAM_ID: &str = "FrVurKh1JenS5SkxaNGBeVH2m7TSCu2DizYgtabARMF2";
 
 #[repr(u8)]
 #[derive(Serialize, Deserialize)]
@@ -220,17 +220,17 @@ mod tests {
         let proof_account = bytemuck::from_bytes_mut::<ProofAccount>(account_data);
         let c = proof_account.flow();
 
-        assert_eq!(c, 190);
+        assert_eq!(c, 191);
 
         let ProofAccount { intermediate, .. } = bytemuck::from_bytes::<ProofAccount>(account_data);
 
         assert_eq!(
             intermediate.program_hash().to_string(),
-            "2600195635685626119055100741094371725887213141003183770434823435664529167464"
+            "0"
         );
         assert_eq!(
             format!("{:?}", intermediate.output()),
-            "[0x1, 0x4, 0x193641eb151b0f41674641089952e60bc3aded26e3cf42793655c562b8c3aa0, 0x5ab580b04e3532b6b18f81cfa654a05e29dd8e2352d88df1e765a84072db07, 0xb2c58e4eec9b5a8f0c5ba4d15ae59c8ac8a8d96fca443dd591296ba3391aaf]"
+            "[]"
         );
     }
 }

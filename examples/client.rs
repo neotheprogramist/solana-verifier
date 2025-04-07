@@ -37,7 +37,7 @@ async fn send_transactions(config: &SolanaConfig, instructions: &[Instruction]) 
     }
 
     println!(
-        "Sent all {} publish instructions sequentially",
+        "Sent all {} publish instructions",
         instructions.len()
     );
 }

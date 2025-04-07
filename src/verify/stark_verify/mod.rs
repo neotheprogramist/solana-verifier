@@ -1,4 +1,3 @@
-use solana_program::msg;
 use swiftness::funvec::FunVec;
 use swiftness::oods::OodsEvaluationInfo;
 use swiftness::oods::eval_oods_boundary_poly_at_points;
@@ -43,7 +42,6 @@ pub struct StarkVerifyIntermediate {
 impl Task for StarkVerifyTask<'_> {
     // stark_verify::<Layout>(
     fn execute(&mut self) -> Vec<Tasks> {
-        msg!("StarkVerifyTask");
         let StarkVerifyTask {
             cache,
             n_original_columns,
@@ -74,17 +72,17 @@ impl Task for StarkVerifyTask<'_> {
             constraint_coefficients: commitment.interaction_after_oods.as_slice(),
         };
         let evaluations = evaluations.to_size_uninitialized(points.len());
-        let _oods_poly_evals = eval_oods_boundary_poly_at_points::<Layout>(
-            eval_oods,
-            evaluations,
-            *n_original_columns,
-            *n_interaction_columns,
-            public_input,
-            &eval_info,
-            points,
-            &witness.traces_decommitment,
-            &witness.composition_decommitment,
-        );
+        // let _oods_poly_evals = eval_oods_boundary_poly_at_points::<Layout>(
+        //     eval_oods,
+        //     evaluations,
+        //     *n_original_columns,
+        //     *n_interaction_columns,
+        //     public_input,
+        //     &eval_info,
+        //     points,
+        //     &witness.traces_decommitment,
+        //     &witness.composition_decommitment,
+        // );
 
         self.children()
     }

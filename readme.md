@@ -61,7 +61,7 @@ Start Local Validator and set it as default endpoint
 
 ```bash
 solana config set -u localhost
-solana-test-validator --compute-unit-limit 10000000000000
+solana-test-validator --compute-unit-limit 100000000
 ```
 
 ### Program Setup
@@ -104,8 +104,8 @@ cargo run --example validate
 
 ### Tests
 
-Run the tests, requires more stack space than default.
+Run the tests.
 
 ```bash
-RUST_MIN_STACK=4096000 cargo test
+cargo test
 ```
