@@ -19,10 +19,7 @@ use crate::verify::stark_verify::table_decommit::{TableDecommitTarget, TableDeco
 use crate::verify::verify_output::VerifyOutputTask;
 use crate::{
     intermediate::Intermediate,
-    verify::{
-        VerifyProofTask,
-        init_transcript::InitTranscriptTask,
-    }
+    verify::{VerifyProofTask, init_transcript::InitTranscriptTask},
 };
 
 #[derive(Debug, Clone, Copy, Default)]
@@ -71,7 +68,9 @@ impl Tasks {
                 Box::new(TableDecommitTask::view(target, proof, cache, intermediate))
             }
             Tasks::StarkCommit => Box::new(StarkCommitTask::view(proof, cache, intermediate)),
-            Tasks::GenerateQueries => Box::new(GenerateQueriesTask::view(proof, cache, intermediate)),
+            Tasks::GenerateQueries => {
+                Box::new(GenerateQueriesTask::view(proof, cache, intermediate))
+            }
             Tasks::StarkCommitOodsCoef => {
                 Box::new(StarkCommitOodsCoefTask::view(proof, cache, intermediate))
             }

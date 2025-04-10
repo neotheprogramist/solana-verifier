@@ -36,10 +36,7 @@ async fn send_transactions(config: &SolanaConfig, instructions: &[Instruction]) 
         }
     }
 
-    println!(
-        "Sent all {} publish instructions",
-        instructions.len()
-    );
+    println!("Sent all {} publish instructions", instructions.len());
 }
 
 async fn create_and_send_transaction_without_confirmation(

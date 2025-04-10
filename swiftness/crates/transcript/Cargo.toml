@@ -1,0 +1,11 @@
+[package]
+name = "swiftness_transcript"
+edition.workspace = true
+version.workspace = true
+
+[dependencies]
+starknet-crypto.workspace = true
+
+[features]
+default = ["std"]
+std = ["starknet-crypto/std"]
