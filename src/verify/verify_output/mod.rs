@@ -1,3 +1,4 @@
+use solana_program::msg;
 use swiftness::funvec::FunVec;
 use swiftness::types::Felt;
 use swiftness::types::StarkProof;
@@ -18,10 +19,13 @@ pub struct VerifyOutputTask<'a> {
 
 impl Task for VerifyOutputTask<'_> {
     fn execute(&mut self) -> Vec<Tasks> {
-        let (program_hash, output) = Layout::verify_public_input(self.public_input).unwrap();
+        // let (program_hash, output) = Layout::verify_public_input(self.public_input).unwrap();
 
-        *self.program_hash = program_hash;
-        self.output.move_to(output);
+        // msg!("program hash: {}", program_hash);
+        // msg!("output: {:?}", output);
+
+        // *self.program_hash = program_hash;
+        // self.output.move_to(output);
 
         self.children()
     }

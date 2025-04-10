@@ -1,0 +1,38 @@
+[package]
+name = "swiftness"
+edition = "2021"
+version = "1.0.0"
+
+[dependencies]
+funvec = { path = "../crates/funvec" }
+bytemuck = { version = "1.21.0", features = ["derive"] }
+starknet-core = "0.12.0"
+
+swiftness_air = { path = "../crates/air", default-features = false, features = [
+    "std",
+], version = "1.0.0" }
+swiftness_commitment = { path = "../crates/commitment", default-features = false, features = [
+    "std",
+], version = "1.0.0" }
+swiftness_fri = { path = "../crates/fri", default-features = false, features = [
+    "std",
+], version = "1.0.0" }
+swiftness_pow = { path = "../crates/pow", default-features = false, features = [
+    "std",
+], version = "1.0.0" }
+swiftness_stark = { path = "../crates/stark", default-features = false, features = [
+    "std",
+], version = "1.0.0" }
+swiftness_proof_parser = { path = "../proof_parser", version = "1.0.0" }
+
+[features]
+default = ["recursive_with_poseidon", "keccak_160_lsb", "stone6"]
+recursive_with_poseidon = [
+    "swiftness_air/recursive_with_poseidon",
+    "swiftness_stark/recursive_with_poseidon",
+]
+stone6 = ["swiftness_air/stone6", "swiftness_stark/stone6"]
+keccak_160_lsb = [
+    "swiftness_air/keccak_160_lsb",
+    "swiftness_stark/keccak_160_lsb",
+]

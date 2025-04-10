@@ -42,7 +42,7 @@ where
         intermediate: &mut Intermediate,
     ) {
         let mut queue = VecDeque::new();
-        queue.push_back(Tasks::VerifyProofWithoutStark);
+        queue.push_back(Tasks::VerifyProof);
 
         while let Some(task) = queue.pop_front() {
             // Add the current task to schedule

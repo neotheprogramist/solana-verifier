@@ -1,0 +1,33 @@
+[package]
+name = "swiftness_air"
+edition.workspace = true
+version.workspace = true
+
+[features]
+default = ["std", "recursive_with_poseidon", "keccak_160_lsb", "stone6"]
+std = [
+    "dep:thiserror",
+    "swiftness_commitment/std",
+    "swiftness_transcript/std",
+    "starknet-core/std",
+    "starknet-crypto/std",
+]
+recursive_with_poseidon = []
+stone6 = []
+keccak_160_lsb = ["swiftness_commitment/keccak_160_lsb"]
+test_fixtures = []
+
+[dependencies]
+funvec.workspace = true
+bytemuck.workspace = true
+num-bigint.workspace = true
+serde_with.workspace = true
+serde.workspace = true
+starknet-core.workspace = true
+starknet-crypto.workspace = true
+starknet-types-core.workspace = true
+thiserror = { optional = true, workspace = true }
+thiserror-no-std.workspace = true
+
+swiftness_commitment.workspace = true
+swiftness_transcript.workspace = true
