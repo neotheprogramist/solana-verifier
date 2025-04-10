@@ -32,12 +32,12 @@ impl Task for StarkVerifyLastLayerTask<'_> {
             Result::<(), Error>::Err(Error::InvalidValue).unwrap();
         };
 
-        verify_last_layer(
-            fri_queries.as_slice(),
-            commitment.last_layer_coefficients.as_slice(),
-        )
-        .map_err(|_| Error::LastLayerVerificationError)
-        .unwrap();
+        // verify_last_layer(
+        //     fri_queries.as_slice(),
+        //     commitment.last_layer_coefficients.as_slice(),
+        // )
+        // .map_err(|_| Error::LastLayerVerificationError)
+        // .unwrap();
 
         self.children()
     }

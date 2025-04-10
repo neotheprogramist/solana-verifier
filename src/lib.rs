@@ -19,7 +19,7 @@ mod verify;
 // declare and export the program's entrypoint
 entrypoint!(process_instruction_data);
 
-pub const PROGRAM_ID: &str = "FrVurKh1JenS5SkxaNGBeVH2m7TSCu2DizYgtabARMF2";
+pub const PROGRAM_ID: &str = "HbgwR5DRMs3mFvKDHpmpSvvU3UEhqK87N26tWaZZwjgE";
 
 #[repr(u8)]
 #[derive(Serialize, Deserialize)]
@@ -128,9 +128,7 @@ pub fn process_instruction(
 
             let proof_account = bytemuck::from_bytes_mut::<ProofAccount>(account_data);
             proof_account.schedule.flush();
-            proof_account
-                .schedule
-                .push(Tasks::VerifyProof.into());
+            proof_account.schedule.push(Tasks::VerifyProof.into());
 
             VerificationStage::Verify
         }
@@ -224,13 +222,7 @@ mod tests {
 
         let ProofAccount { intermediate, .. } = bytemuck::from_bytes::<ProofAccount>(account_data);
 
-        assert_eq!(
-            intermediate.program_hash().to_string(),
-            "0"
-        );
-        assert_eq!(
-            format!("{:?}", intermediate.output()),
-            "[]"
-        );
+        assert_eq!(intermediate.program_hash().to_string(), "0");
+        assert_eq!(format!("{:?}", intermediate.output()), "[]");
     }
 }

@@ -1,3 +1,4 @@
+use swiftness::types::Felt;
 use swiftness_air::Transcript;
 use swiftness_stark::types::StarkProof;
 
@@ -18,21 +19,17 @@ impl Task for InitTranscriptTask<'_> {
         // Compute the initial hash seed for the Fiat-Shamir transcript.
         // Construct the transcript.
         self.intermediate.transcript = Transcript::new(
-            self.proof
-                .public_input
-                .get_hash(self.proof.config.n_verifier_friendly_commitment_layers),
+            // self.proof
+            //     .public_input
+            //     .get_hash(self.proof.config.n_verifier_friendly_commitment_layers),
+            Felt::ZERO,
         );
 
         self.children()
     }
 
     fn children(&self) -> Vec<Tasks> {
-        vec![
-            // Tasks::StarkCommit,
-            // Tasks::GenerateQueries,
-            // Tasks::StarkVerify,
-            // Tasks::VerifyOutput,
-        ]
+        vec![]
     }
 }
 

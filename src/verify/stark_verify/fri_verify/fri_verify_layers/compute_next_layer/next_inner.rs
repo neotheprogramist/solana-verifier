@@ -45,7 +45,6 @@ impl Task for ComputeNextInnerTask<'_> {
             panic!("Not enough data in context");
         };
 
-
         let ComputeNextLayerCache {
             next_queries,
             verify_indices,
