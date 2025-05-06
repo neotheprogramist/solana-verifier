@@ -289,18 +289,6 @@ pub fn setup_account(
     }
 }
 
-/// Setup the greeting account - either use existing or create a new one (legacy function)
-pub fn setup_greeting_account(
-    client: &RpcClient,
-    payer: &Keypair,
-    program_id: &solana_sdk::pubkey::Pubkey,
-    config: &Config,
-) -> Result<Keypair> {
-    // Calculate the space needed for the greeting account
-    let space = std::mem::size_of::<GreetingAccount>();
-    setup_account(client, payer, program_id, config, space, "greeting-account")
-}
-
 /// Interact with a program account
 pub fn interact_with_account(
     client: &RpcClient,
@@ -497,19 +485,12 @@ pub fn write_program_to_buffer(
         );
 
         // Send transaction without waiting for confirmation
-        let signature = client.send_transaction(&write_tx).map_err(|e| {
+        client.send_transaction(&write_tx).map_err(|e| {
             ClientError::TransactionError(format!(
                 "Failed to send chunk at offset {}: {}",
                 offset, e
             ))
         })?;
-
-        println!(
-            "Sent chunk at offset {}/{}: tx signature: {}",
-            offset,
-            program_data.len(),
-            signature
-        );
 
         offset = chunk_end;
     }

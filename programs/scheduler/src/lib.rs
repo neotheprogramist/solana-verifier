@@ -1,5 +1,3 @@
-#![allow(unexpected_cfgs)]
-
 pub mod utils;
 
 // Export modules

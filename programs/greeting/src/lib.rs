@@ -1,5 +1,3 @@
-#![allow(unexpected_cfgs)]
-
 // Export modules
 pub mod entrypoint;
 pub mod error;

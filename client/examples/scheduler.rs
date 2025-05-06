@@ -21,7 +21,7 @@ fn main() -> client::Result<()> {
     let program_id = setup_program(&client, &payer, &config, program_path)?;
 
     // Setup scheduler account
-    let space = 65536; // Large enough to store the serialized scheduler
+    let space = 1048576; // Large enough to store the serialized scheduler
     let scheduler_account = setup_account(
         &client,
         &payer,
