@@ -17,7 +17,7 @@ solana-test-validator
 
 2. Build the Solana program:
 ```bash
-cargo build-sbf --workspace
+cargo build-sbf -- -p greeting
 ```
 
 3. Build and run the greeting example:
