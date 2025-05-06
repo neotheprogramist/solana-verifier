@@ -1,7 +1,7 @@
 use client::{
-    initialize_client, interact_with_program_instructions, setup_account, setup_payer,
-    setup_program, ClientError, Config, Result,
+    initialize_client, setup_account, setup_payer, setup_program, ClientError, Config, Result,
 };
+use scheduler::utils::Scheduler;
 use solana_client::rpc_client::RpcClient;
 use solana_program::instruction::{AccountMeta, Instruction};
 use solana_sdk::{
@@ -9,39 +9,7 @@ use solana_sdk::{
     transaction::Transaction,
 };
 use std::path::Path;
-
-/// Initialize the scheduler account
-pub fn initialize_scheduler(
-    client: &RpcClient,
-    payer: &Keypair,
-    program_id: &solana_sdk::pubkey::Pubkey,
-    scheduler_account: &Keypair,
-) -> Result<()> {
-    use scheduler::instruction::SchedulerInstruction;
-
-    println!("Initializing scheduler account...");
-
-    // Create the initialize instruction
-    let init_ix = Instruction::new_with_borsh(
-        *program_id,
-        &SchedulerInstruction::Initialize,
-        vec![AccountMeta::new(scheduler_account.pubkey(), false)],
-    );
-
-    let blockhash = client
-        .get_latest_blockhash()
-        .map_err(ClientError::SolanaClientError)?;
-
-    let init_tx =
-        Transaction::new_signed_with_payer(&[init_ix], Some(&payer.pubkey()), &[payer], blockhash);
-
-    client.send_and_confirm_transaction(&init_tx).map_err(|e| {
-        ClientError::TransactionError(format!("Failed to initialize scheduler: {}", e))
-    })?;
-
-    println!("Scheduler initialized successfully!");
-    Ok(())
-}
+use utils::AccountCast;
 
 /// Push a task onto the scheduler
 pub fn push_task(
@@ -119,6 +87,27 @@ pub fn execute_task(
     Ok(())
 }
 
+/// Get result from scheduler
+pub fn get_result_u128(client: &RpcClient, scheduler_account: &Keypair) -> Result<u128> {
+    println!("Getting result from scheduler...");
+
+    // Get account data
+    let mut account_data = client
+        .get_account_data(&scheduler_account.pubkey())
+        .map_err(ClientError::SolanaClientError)?;
+
+    // Cast to scheduler
+    let scheduler = Scheduler::cast_mut(&mut account_data);
+
+    // Pop data from scheduler
+    let result: u128 = scheduler.pop_data().map_err(|e| {
+        ClientError::TransactionError(format!("Failed to pop data from scheduler: {}", e))
+    })?;
+
+    println!("Result retrieved successfully!");
+    Ok(result)
+}
+
 /// Main entry point for the Solana program client
 fn main() -> client::Result<()> {
     // Parse command-line arguments
@@ -147,27 +136,19 @@ fn main() -> client::Result<()> {
         "scheduler-account",
     )?;
 
-    // Initialize the scheduler
-    initialize_scheduler(&client, &payer, &program_id, &scheduler_account)?;
+    // Create an Add task
+    let add_task = arithmetic::add::Add::new(42, 58);
 
-    // Create initialize instruction for interact_with_program_instructions
-    use scheduler::instruction::SchedulerInstruction;
-    let init_ix = Instruction::new_with_borsh(
-        program_id,
-        &SchedulerInstruction::Initialize,
-        vec![AccountMeta::new(scheduler_account.pubkey(), false)],
-    );
+    // Push the Add task to the scheduler
+    push_task(&client, &payer, &program_id, &scheduler_account, &add_task)?;
 
-    // Interact with the program using instructions directly
-    interact_with_program_instructions(
-        &client,
-        &payer,
-        &program_id,
-        &scheduler_account,
-        &[init_ix],
-    )?;
+    // Execute the task
+    execute_task(&client, &payer, &program_id, &scheduler_account)?;
 
-    println!("Scheduler program initialization completed successfully!");
+    // Get the result
+    let result = get_result_u128(&client, &scheduler_account)?;
+    println!("Addition result: {}", result);
 
+    println!("Scheduler example completed successfully!");
     Ok(())
 }
