@@ -17,17 +17,12 @@ solana-test-validator
 
 2. Build the Solana program:
 ```bash
-cargo build-sbf
+cargo build-sbf -- -p verifier
 ```
 
-3. Deploy the Solana program
+3. Build and run the client:
 ```bash
-solana program deploy target/deploy/verifier.so
-```
-
-4. Build and run the client:
-```bash
-cargo run
+cargo run -p client
 ```
 
 ## Client Features
