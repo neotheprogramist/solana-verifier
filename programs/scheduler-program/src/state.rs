@@ -8,6 +8,12 @@ pub struct SchedulerAccount {
     pub scheduler_data: Vec<u8>,
 }
 
+impl Default for SchedulerAccount {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl SchedulerAccount {
     /// Create a new scheduler account
     pub fn new() -> Self {
@@ -22,8 +28,8 @@ impl SchedulerAccount {
     /// Get the scheduler instance
     pub fn get_scheduler(&self) -> Result<Scheduler, scheduler::Error> {
         let mut cursor = std::io::Cursor::new(&self.scheduler_data);
-        let scheduler = ciborium::de::from_reader(&mut cursor)
-            .map_err(|e| scheduler::Error::Deserialization(e))?;
+        let scheduler =
+            ciborium::de::from_reader(&mut cursor).map_err(scheduler::Error::Deserialization)?;
 
         Ok(scheduler)
     }
@@ -32,7 +38,7 @@ impl SchedulerAccount {
     pub fn update_scheduler(&mut self, scheduler: &Scheduler) -> Result<(), scheduler::Error> {
         self.scheduler_data.clear();
         ciborium::ser::into_writer(scheduler, &mut self.scheduler_data)
-            .map_err(|e| scheduler::Error::Serialization(e))?;
+            .map_err(scheduler::Error::Serialization)?;
 
         Ok(())
     }

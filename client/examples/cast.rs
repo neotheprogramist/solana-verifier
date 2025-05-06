@@ -11,8 +11,8 @@ fn cast_slice_to_struct(slice: &mut [u8]) -> &mut MyStruct {
 }
 
 fn main() {
-    let mut slice: &mut [u8] = &mut [1, 2, 3];
-    let my_struct: &mut MyStruct = cast_slice_to_struct(&mut slice);
+    let slice: &mut [u8] = &mut [1, 2, 3];
+    let my_struct: &mut MyStruct = cast_slice_to_struct(slice);
 
     println!("Before: {} {} {}", my_struct.a, my_struct.b, my_struct.c);
 

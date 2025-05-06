@@ -61,7 +61,7 @@ impl Processor {
         // Get the scheduler
         let mut scheduler = scheduler_account
             .get_scheduler()
-            .map_err(|e| SchedulerError::from(e))?;
+            .map_err(SchedulerError::from)?;
 
         // Deserialize the task
         let mut cursor = Cursor::new(task_data);
@@ -69,14 +69,12 @@ impl Processor {
             .map_err(|_| SchedulerError::SchedulerDeserializationError)?;
 
         // Push the task onto the scheduler
-        scheduler
-            .push_task(task)
-            .map_err(|e| SchedulerError::from(e))?;
+        scheduler.push_task(task).map_err(SchedulerError::from)?;
 
         // Update the scheduler account
         scheduler_account
             .update_scheduler(&scheduler)
-            .map_err(|e| SchedulerError::from(e))?;
+            .map_err(SchedulerError::from)?;
 
         // Serialize the scheduler account
         scheduler_account.serialize(&mut *account.data.borrow_mut())?;
@@ -106,15 +104,15 @@ impl Processor {
         // Get the scheduler
         let mut scheduler = scheduler_account
             .get_scheduler()
-            .map_err(|e| SchedulerError::from(e))?;
+            .map_err(SchedulerError::from)?;
 
         // Execute the next task
-        scheduler.execute().map_err(|e| SchedulerError::from(e))?;
+        scheduler.execute().map_err(SchedulerError::from)?;
 
         // Update the scheduler account
         scheduler_account
             .update_scheduler(&scheduler)
-            .map_err(|e| SchedulerError::from(e))?;
+            .map_err(SchedulerError::from)?;
 
         // Serialize the scheduler account
         scheduler_account.serialize(&mut *account.data.borrow_mut())?;
@@ -147,17 +145,15 @@ impl Processor {
         // Get the scheduler
         let mut scheduler = scheduler_account
             .get_scheduler()
-            .map_err(|e| SchedulerError::from(e))?;
+            .map_err(SchedulerError::from)?;
 
         // Execute all tasks
-        scheduler
-            .execute_all()
-            .map_err(|e| SchedulerError::from(e))?;
+        scheduler.execute_all().map_err(SchedulerError::from)?;
 
         // Update the scheduler account
         scheduler_account
             .update_scheduler(&scheduler)
-            .map_err(|e| SchedulerError::from(e))?;
+            .map_err(SchedulerError::from)?;
 
         // Serialize the scheduler account
         scheduler_account.serialize(&mut *account.data.borrow_mut())?;
