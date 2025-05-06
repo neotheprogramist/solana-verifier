@@ -4,7 +4,7 @@ use std::time::Duration;
 
 /// Solana program client configuration
 #[derive(Parser, Debug)]
-#[clap(author, version, about = "Solana Verifier Client")]
+#[clap(author, version, about = "Solana Program Client")]
 pub struct Config {
     /// RPC URL for the Solana cluster
     #[clap(long, default_value = "http://localhost:8899")]
@@ -15,7 +15,7 @@ pub struct Config {
     pub rpc_timeout_secs: u64,
 
     /// Path to the program binary
-    #[clap(long, default_value = "target/deploy/verifier.so")]
+    #[clap(long, default_value = "target/deploy/greeting.so")]
     pub program_path: PathBuf,
 
     /// Path to the payer keypair file
@@ -29,10 +29,6 @@ pub struct Config {
     /// Path to the greeting account keypair file
     #[clap(long, default_value = "greeting-keypair.json")]
     pub greeting_keypair_path: PathBuf,
-
-    /// Path to the scheduler account keypair file
-    #[clap(long, default_value = "scheduler-keypair.json")]
-    pub scheduler_keypair_path: PathBuf,
 
     /// Amount of SOL to airdrop initially
     #[clap(long, default_value = "2000000000")]

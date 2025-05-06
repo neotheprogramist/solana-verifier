@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["verifier", "client", "scheduler", "tasks/*"]
+members = ["client", "programs/*", "tasks/*"]
 
 [workspace.package]
 version = "0.1.0"
@@ -16,8 +16,8 @@ thiserror = "2.0.12"
 typetag = "0.2.20"
 
 client = { path = "./client" }
-scheduler = { path = "./scheduler" }
-verifier = { path = "./verifier" }
+greeting = { path = "./programs/greeting" }
+scheduler = { path = "./programs/scheduler" }
 
 arithmetic = { path = "./tasks/arithmetic" }
 stark = { path = "./tasks/stark" }

@@ -13,4 +13,4 @@ solana-program.workspace = true
 solana-sdk = "2.2.1"
 thiserror.workspace = true
 
-verifier.workspace = true
+greeting.workspace = true
