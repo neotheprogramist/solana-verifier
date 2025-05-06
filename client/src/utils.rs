@@ -1,6 +1,5 @@
 #![allow(deprecated)]
 
-use borsh::BorshDeserialize;
 use serde_json;
 use solana_client::rpc_client::RpcClient;
 use solana_program::{
@@ -17,7 +16,6 @@ use solana_sdk::{
 use std::{fs, path::Path, thread::sleep};
 
 use crate::{ClientError, Config, Result};
-use greeting::state::GreetingAccount;
 
 /// Initialize the Solana RPC client and verify connection
 pub fn initialize_client(config: &Config) -> Result<RpcClient> {
@@ -171,7 +169,7 @@ pub fn setup_program(
     // Read the program binary
     if !program_path.exists() {
         return Err(ClientError::ProgramNotFound(
-            format!("Program binary not found at {}. Please build the program first with 'cargo build-sbf' in the verifier directory.", 
+            format!("Program binary not found at {}. Please build the program first with 'cargo build-sbf' in the program directory.", 
                 program_path.display()
             )
         ));
@@ -289,20 +287,16 @@ pub fn setup_account(
     }
 }
 
-/// Interact with a program account
-pub fn interact_with_account(
+/// Send an instruction to a program
+pub fn send_instruction(
     client: &RpcClient,
     payer: &Keypair,
     program_id: &solana_sdk::pubkey::Pubkey,
-    account: &Keypair,
+    accounts: Vec<AccountMeta>,
     instruction_data: &[u8],
-) -> Result<()> {
+) -> Result<solana_sdk::signature::Signature> {
     // Create an instruction to call the program
-    let instruction = Instruction::new_with_bytes(
-        *program_id,
-        instruction_data,
-        vec![AccountMeta::new(account.pubkey(), false)],
-    );
+    let instruction = Instruction::new_with_bytes(*program_id, instruction_data, accounts);
 
     // Get latest blockhash
     let blockhash = client
@@ -321,33 +315,44 @@ pub fn interact_with_account(
     let signature = client
         .send_and_confirm_transaction(&transaction)
         .map_err(|e| {
-            ClientError::TransactionError(format!(
-                "Failed to send and confirm program interaction transaction: {}",
-                e
-            ))
+            ClientError::TransactionError(format!("Failed to send and confirm transaction: {}", e))
         })?;
     println!("Transaction signature: {}", signature);
 
-    Ok(())
+    Ok(signature)
 }
 
-/// Interact with the greeting program (legacy function)
-pub fn interact_with_program(
+/// Trait for program-specific interactions
+pub trait ProgramInteraction {
+    /// Process account data after interaction
+    fn process_account_data(client: &RpcClient, account: &Keypair) -> Result<()>;
+
+    /// Get instruction data for the interaction
+    fn get_instruction_data(&self) -> Vec<u8>;
+
+    /// Get accounts for the instruction
+    fn get_accounts(&self, account: &Keypair) -> Vec<AccountMeta> {
+        vec![AccountMeta::new(account.pubkey(), false)]
+    }
+}
+
+/// Generic function to interact with any program
+pub fn interact_with_program<T: ProgramInteraction>(
     client: &RpcClient,
     payer: &Keypair,
     program_id: &solana_sdk::pubkey::Pubkey,
-    greeting_account: &Keypair,
+    account: &Keypair,
+    interaction: &T,
 ) -> Result<()> {
-    // Call the generic function with empty instruction data for greeting program
-    interact_with_account(client, payer, program_id, greeting_account, &[])?;
+    // Get instruction data and accounts from the interaction implementation
+    let instruction_data = interaction.get_instruction_data();
+    let accounts = interaction.get_accounts(account);
 
-    // Read the greeting account data
-    let account_data = client
-        .get_account_data(&greeting_account.pubkey())
-        .map_err(ClientError::SolanaClientError)?;
-    let greeting_account_data = GreetingAccount::try_from_slice(&account_data)
-        .map_err(|e| ClientError::BorshError(e.to_string()))?;
-    println!("Greeting counter: {}", greeting_account_data.counter);
+    // Send the instruction
+    send_instruction(client, payer, program_id, accounts, &instruction_data)?;
+
+    // Process account data using the interaction implementation
+    T::process_account_data(client, account)?;
 
     Ok(())
 }
@@ -591,113 +596,4 @@ pub fn write_keypair_file<P: AsRef<Path>>(keypair: &Keypair, path: P) -> Result<
     let json =
         serde_json::to_string(&keypair.to_bytes().to_vec()).map_err(ClientError::SerdeError)?;
     fs::write(&path, json).map_err(ClientError::IoError)
-}
-
-/// Initialize the scheduler account
-pub fn initialize_scheduler(
-    client: &RpcClient,
-    payer: &Keypair,
-    program_id: &solana_sdk::pubkey::Pubkey,
-    scheduler_account: &Keypair,
-) -> Result<()> {
-    use scheduler::instruction::SchedulerInstruction;
-
-    println!("Initializing scheduler account...");
-
-    // Create the initialize instruction
-    let init_ix = Instruction::new_with_borsh(
-        *program_id,
-        &SchedulerInstruction::Initialize,
-        vec![AccountMeta::new(scheduler_account.pubkey(), false)],
-    );
-
-    let blockhash = client
-        .get_latest_blockhash()
-        .map_err(ClientError::SolanaClientError)?;
-
-    let init_tx =
-        Transaction::new_signed_with_payer(&[init_ix], Some(&payer.pubkey()), &[payer], blockhash);
-
-    client.send_and_confirm_transaction(&init_tx).map_err(|e| {
-        ClientError::TransactionError(format!("Failed to initialize scheduler: {}", e))
-    })?;
-
-    println!("Scheduler initialized successfully!");
-    Ok(())
-}
-
-/// Push a task onto the scheduler
-pub fn push_task(
-    client: &RpcClient,
-    payer: &Keypair,
-    program_id: &solana_sdk::pubkey::Pubkey,
-    scheduler_account: &Keypair,
-    task: &dyn scheduler::utils::SchedulerTask,
-) -> Result<()> {
-    use scheduler::instruction::SchedulerInstruction;
-
-    println!("Pushing task to scheduler...");
-
-    // Serialize the task
-    let mut task_data = Vec::new();
-    ciborium::ser::into_writer(task, &mut task_data)
-        .map_err(|e| ClientError::SerializationError(e.to_string()))?;
-
-    // Create the push task instruction
-    let push_ix = Instruction::new_with_borsh(
-        *program_id,
-        &SchedulerInstruction::PushTask(task_data),
-        vec![AccountMeta::new(scheduler_account.pubkey(), false)],
-    );
-
-    let blockhash = client
-        .get_latest_blockhash()
-        .map_err(ClientError::SolanaClientError)?;
-
-    let push_tx =
-        Transaction::new_signed_with_payer(&[push_ix], Some(&payer.pubkey()), &[payer], blockhash);
-
-    client.send_and_confirm_transaction(&push_tx).map_err(|e| {
-        ClientError::TransactionError(format!("Failed to push task to scheduler: {}", e))
-    })?;
-
-    println!("Task pushed successfully!");
-    Ok(())
-}
-
-/// Execute a task from the scheduler
-pub fn execute_task(
-    client: &RpcClient,
-    payer: &Keypair,
-    program_id: &solana_sdk::pubkey::Pubkey,
-    scheduler_account: &Keypair,
-) -> Result<()> {
-    use scheduler::instruction::SchedulerInstruction;
-
-    println!("Executing task from scheduler...");
-
-    // Create the execute task instruction
-    let execute_ix = Instruction::new_with_borsh(
-        *program_id,
-        &SchedulerInstruction::ExecuteTask,
-        vec![AccountMeta::new(scheduler_account.pubkey(), false)],
-    );
-
-    let blockhash = client
-        .get_latest_blockhash()
-        .map_err(ClientError::SolanaClientError)?;
-
-    let execute_tx = Transaction::new_signed_with_payer(
-        &[execute_ix],
-        Some(&payer.pubkey()),
-        &[payer],
-        blockhash,
-    );
-
-    client
-        .send_and_confirm_transaction(&execute_tx)
-        .map_err(|e| ClientError::TransactionError(format!("Failed to execute task: {}", e)))?;
-
-    println!("Task executed successfully!");
-    Ok(())
 }

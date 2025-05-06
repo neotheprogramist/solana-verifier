@@ -1,7 +1,139 @@
 use client::{
-    initialize_client, initialize_scheduler, setup_account, setup_payer, setup_program, Config,
+    initialize_client, interact_with_program, setup_account, setup_payer, setup_program,
+    ClientError, Config, ProgramInteraction, Result,
+};
+use solana_client::rpc_client::RpcClient;
+use solana_program::instruction::{AccountMeta, Instruction};
+use solana_sdk::{
+    signature::{Keypair, Signer},
+    transaction::Transaction,
 };
 use std::path::Path;
+
+/// Scheduler program interaction implementation
+pub struct SchedulerInteraction;
+
+impl ProgramInteraction for SchedulerInteraction {
+    fn process_account_data(_client: &RpcClient, _account: &Keypair) -> Result<()> {
+        // For scheduler, we don't need to process account data after basic interaction
+        println!("Scheduler account interaction complete");
+        Ok(())
+    }
+
+    fn get_instruction_data(&self) -> Vec<u8> {
+        // Empty instruction data for basic scheduler interaction
+        vec![]
+    }
+}
+
+/// Initialize the scheduler account
+pub fn initialize_scheduler(
+    client: &RpcClient,
+    payer: &Keypair,
+    program_id: &solana_sdk::pubkey::Pubkey,
+    scheduler_account: &Keypair,
+) -> Result<()> {
+    use scheduler::instruction::SchedulerInstruction;
+
+    println!("Initializing scheduler account...");
+
+    // Create the initialize instruction
+    let init_ix = Instruction::new_with_borsh(
+        *program_id,
+        &SchedulerInstruction::Initialize,
+        vec![AccountMeta::new(scheduler_account.pubkey(), false)],
+    );
+
+    let blockhash = client
+        .get_latest_blockhash()
+        .map_err(ClientError::SolanaClientError)?;
+
+    let init_tx =
+        Transaction::new_signed_with_payer(&[init_ix], Some(&payer.pubkey()), &[payer], blockhash);
+
+    client.send_and_confirm_transaction(&init_tx).map_err(|e| {
+        ClientError::TransactionError(format!("Failed to initialize scheduler: {}", e))
+    })?;
+
+    println!("Scheduler initialized successfully!");
+    Ok(())
+}
+
+/// Push a task onto the scheduler
+pub fn push_task(
+    client: &RpcClient,
+    payer: &Keypair,
+    program_id: &solana_sdk::pubkey::Pubkey,
+    scheduler_account: &Keypair,
+    task: &dyn scheduler::utils::SchedulerTask,
+) -> Result<()> {
+    use scheduler::instruction::SchedulerInstruction;
+
+    println!("Pushing task to scheduler...");
+
+    // Serialize the task
+    let mut task_data = Vec::new();
+    ciborium::ser::into_writer(task, &mut task_data)
+        .map_err(|e| ClientError::SerializationError(e.to_string()))?;
+
+    // Create the push task instruction
+    let push_ix = Instruction::new_with_borsh(
+        *program_id,
+        &SchedulerInstruction::PushTask(task_data),
+        vec![AccountMeta::new(scheduler_account.pubkey(), false)],
+    );
+
+    let blockhash = client
+        .get_latest_blockhash()
+        .map_err(ClientError::SolanaClientError)?;
+
+    let push_tx =
+        Transaction::new_signed_with_payer(&[push_ix], Some(&payer.pubkey()), &[payer], blockhash);
+
+    client.send_and_confirm_transaction(&push_tx).map_err(|e| {
+        ClientError::TransactionError(format!("Failed to push task to scheduler: {}", e))
+    })?;
+
+    println!("Task pushed successfully!");
+    Ok(())
+}
+
+/// Execute a task from the scheduler
+pub fn execute_task(
+    client: &RpcClient,
+    payer: &Keypair,
+    program_id: &solana_sdk::pubkey::Pubkey,
+    scheduler_account: &Keypair,
+) -> Result<()> {
+    use scheduler::instruction::SchedulerInstruction;
+
+    println!("Executing task from scheduler...");
+
+    // Create the execute task instruction
+    let execute_ix = Instruction::new_with_borsh(
+        *program_id,
+        &SchedulerInstruction::ExecuteTask,
+        vec![AccountMeta::new(scheduler_account.pubkey(), false)],
+    );
+
+    let blockhash = client
+        .get_latest_blockhash()
+        .map_err(ClientError::SolanaClientError)?;
+
+    let execute_tx = Transaction::new_signed_with_payer(
+        &[execute_ix],
+        Some(&payer.pubkey()),
+        &[payer],
+        blockhash,
+    );
+
+    client
+        .send_and_confirm_transaction(&execute_tx)
+        .map_err(|e| ClientError::TransactionError(format!("Failed to execute task: {}", e)))?;
+
+    println!("Task executed successfully!");
+    Ok(())
+}
 
 /// Main entry point for the Solana program client
 fn main() -> client::Result<()> {
@@ -33,6 +165,15 @@ fn main() -> client::Result<()> {
 
     // Initialize the scheduler
     initialize_scheduler(&client, &payer, &program_id, &scheduler_account)?;
+
+    // Interact with the program using the generic function with SchedulerInteraction
+    interact_with_program(
+        &client,
+        &payer,
+        &program_id,
+        &scheduler_account,
+        &SchedulerInteraction,
+    )?;
 
     println!("Scheduler program initialization completed successfully!");
 
