@@ -8,6 +8,7 @@ use solana_sdk::{
     signer::Signer,
 };
 use std::{mem::size_of, path::Path};
+use utils::AccountCast;
 
 /// Main entry point for the Solana program client
 fn main() -> client::Result<()> {

@@ -14,36 +14,6 @@ use crate::{error::SchedulerError, instruction::SchedulerInstruction, state::Sch
 pub struct Processor;
 
 impl Processor {
-    /// Process the initialize instruction
-    pub fn process_initialize(program_id: &Pubkey, accounts: &[AccountInfo]) -> ProgramResult {
-        msg!("Processing Initialize instruction");
-
-        // Get the scheduler account
-        let accounts_iter = &mut accounts.iter();
-        let account = next_account_info(accounts_iter)?;
-
-        // The account must be owned by the program in order to modify its data
-        if account.owner != program_id {
-            msg!("Scheduler account does not have the correct program id");
-            return Err(SchedulerError::InvalidOwner.into());
-        }
-
-        // Initialize the scheduler account
-        let scheduler_account = SchedulerAccount::new();
-
-        // Ensure the account has enough space
-        if account.data_len() < borsh::to_vec(&scheduler_account).unwrap().len() {
-            msg!("Scheduler account does not have enough space");
-            return Err(SchedulerError::AccountTooSmall.into());
-        }
-
-        scheduler_account.serialize(&mut *account.data.borrow_mut())?;
-
-        msg!("Scheduler initialized");
-
-        Ok(())
-    }
-
     /// Process the push task instruction
     pub fn process_push_task(
         program_id: &Pubkey,

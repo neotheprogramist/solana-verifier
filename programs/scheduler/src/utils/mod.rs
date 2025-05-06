@@ -19,8 +19,9 @@ pub mod stack;
 // Re-export commonly used types
 pub use error::{Error, Result};
 
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde::{de::DeserializeOwned, Serialize};
 use stack::BidirectionalStack;
+use utils::AccountCast;
 
 /// Trait for tasks that can be executed by the scheduler.
 ///
@@ -40,12 +41,14 @@ pub trait SchedulerTask: Send + Sync {
 /// Scheduler that manages task execution and data flow.
 ///
 /// Uses a bidirectional stack to store tasks and data.
-#[derive(Debug, Default, Deserialize, Serialize)]
+#[derive(Debug, Default)]
 pub struct Scheduler {
     /// The stack used for storing tasks and data.
     /// Tasks are stored at the back, data at the front.
-    stack: BidirectionalStack<2>,
+    stack: BidirectionalStack<1024, 2>,
 }
+
+impl AccountCast for Scheduler {}
 
 impl Scheduler {
     /// Creates a new empty scheduler.

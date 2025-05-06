@@ -17,3 +17,5 @@ serde_with.workspace = true
 solana-program.workspace = true
 thiserror.workspace = true
 typetag.workspace = true
+
+utils.workspace = true

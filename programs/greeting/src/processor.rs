@@ -5,6 +5,7 @@ use solana_program::{
     msg,
     pubkey::Pubkey,
 };
+use utils::AccountCast;
 
 use crate::{instruction::GreetingInstruction, state::GreetingAccount};
 
