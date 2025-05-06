@@ -1,3 +1,5 @@
+#![allow(unexpected_cfgs)]
+
 use borsh::{BorshDeserialize, BorshSerialize};
 use solana_program::{
     account_info::{AccountInfo, next_account_info},
