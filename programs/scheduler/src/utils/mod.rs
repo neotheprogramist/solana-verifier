@@ -21,7 +21,6 @@ pub use error::{Error, Result};
 
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use stack::BidirectionalStack;
-use std::io::Cursor;
 
 /// Trait for tasks that can be executed by the scheduler.
 ///
@@ -45,7 +44,7 @@ pub trait SchedulerTask: Send + Sync {
 pub struct Scheduler {
     /// The stack used for storing tasks and data.
     /// Tasks are stored at the back, data at the front.
-    stack: BidirectionalStack<65536, 2>,
+    stack: BidirectionalStack<2>,
 }
 
 impl Scheduler {
@@ -56,7 +55,7 @@ impl Scheduler {
 
     /// Pushes a task onto the scheduler's task stack.
     pub fn push_task(&mut self, task: Box<dyn SchedulerTask>) -> Result<()> {
-        let mut buffer = Vec::new();
+        let mut buffer = Vec::with_capacity(128);
         ciborium::ser::into_writer(&task, &mut buffer).map_err(Error::Serialization)?;
 
         self.stack
@@ -68,7 +67,7 @@ impl Scheduler {
 
     /// Pushes data onto the scheduler's data stack.
     pub fn push_data<T: Serialize>(&mut self, data: &T) -> Result<()> {
-        let mut buffer = Vec::new();
+        let mut buffer = Vec::with_capacity(128);
         ciborium::ser::into_writer(data, &mut buffer).map_err(Error::Serialization)?;
 
         self.stack
@@ -81,21 +80,13 @@ impl Scheduler {
     /// Pops a task from the scheduler's task stack.
     pub fn pop_task(&mut self) -> Result<Box<dyn SchedulerTask>> {
         let data = self.stack.pop_back()?;
-
-        let mut cursor = Cursor::new(&data);
-        let result = ciborium::de::from_reader(&mut cursor).map_err(Error::Deserialization)?;
-
-        Ok(result)
+        ciborium::de::from_reader(data.as_slice()).map_err(Error::Deserialization)
     }
 
     /// Pops data from the scheduler's data stack.
     pub fn pop_data<T: DeserializeOwned>(&mut self) -> Result<T> {
         let data = self.stack.pop_front()?;
-
-        let mut cursor = Cursor::new(&data);
-        let result = ciborium::de::from_reader(&mut cursor).map_err(Error::Deserialization)?;
-
-        Ok(result)
+        ciborium::de::from_reader(data.as_slice()).map_err(Error::Deserialization)
     }
 
     /// Executes the next task in the scheduler.

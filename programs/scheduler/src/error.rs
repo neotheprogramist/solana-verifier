@@ -24,6 +24,9 @@ pub enum SchedulerError {
 
     #[error("Invalid instruction")]
     InvalidInstruction,
+
+    #[error("Account too small to store scheduler data")]
+    AccountTooSmall,
 }
 
 impl From<SchedulerError> for ProgramError {

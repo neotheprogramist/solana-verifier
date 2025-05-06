@@ -496,16 +496,16 @@ pub fn write_program_to_buffer(
             blockhash,
         );
 
-        let signature = client
-            .send_and_confirm_transaction(&write_tx)
-            .map_err(|e| {
-                ClientError::TransactionError(format!(
-                    "Failed to write chunk at offset {}: {}",
-                    offset, e
-                ))
-            })?;
+        // Send transaction without waiting for confirmation
+        let signature = client.send_transaction(&write_tx).map_err(|e| {
+            ClientError::TransactionError(format!(
+                "Failed to send chunk at offset {}: {}",
+                offset, e
+            ))
+        })?;
+
         println!(
-            "Wrote chunk at offset {}/{}: tx signature: {}",
+            "Sent chunk at offset {}/{}: tx signature: {}",
             offset,
             program_data.len(),
             signature
@@ -514,7 +514,84 @@ pub fn write_program_to_buffer(
         offset = chunk_end;
     }
 
+    // Now verify the buffer data
+    println!("Verifying buffer data...");
+
+    // Retry verification with exponential backoff
+    let mut retry_count = 0;
+    let max_retries = config.transaction_retry_count;
+    let mut verified = false;
+
+    while !verified && retry_count < max_retries {
+        if retry_count > 0 {
+            println!(
+                "Retrying verification attempt {}/{}...",
+                retry_count + 1,
+                max_retries
+            );
+            sleep(config.retry_sleep_duration());
+        }
+
+        match verify_buffer_data(client, buffer_keypair, program_data) {
+            Ok(true) => {
+                verified = true;
+                println!("Buffer data verified successfully!");
+            }
+            Ok(false) => {
+                retry_count += 1;
+                println!("Buffer data verification failed, data mismatch.");
+            }
+            Err(e) => {
+                retry_count += 1;
+                println!("Buffer data verification error: {}", e);
+            }
+        }
+    }
+
+    if !verified {
+        return Err(ClientError::DeploymentError(
+            "Failed to verify buffer data after maximum retries".to_string(),
+        ));
+    }
+
     Ok(())
+}
+
+/// Verify that the buffer account contains the expected program data
+fn verify_buffer_data(
+    client: &RpcClient,
+    buffer_keypair: &Keypair,
+    expected_data: &[u8],
+) -> Result<bool> {
+    // Get the buffer account data
+    let account_data = client
+        .get_account_data(&buffer_keypair.pubkey())
+        .map_err(ClientError::SolanaClientError)?;
+
+    // The buffer account data starts with metadata (UpgradeableLoaderState::Buffer), followed by the program data
+    // The size of the metadata is defined by size_of_buffer_metadata()
+    let data_offset = UpgradeableLoaderState::size_of_buffer_metadata();
+
+    // Make sure the account data is long enough
+    if account_data.len() < data_offset + expected_data.len() {
+        println!(
+            "Buffer account data too short: {} vs expected at least {}",
+            account_data.len(),
+            data_offset + expected_data.len()
+        );
+        return Ok(false);
+    }
+
+    // Extract just the program data portion
+    let buffer_data = &account_data[data_offset..data_offset + expected_data.len()];
+
+    // Verify the content matches
+    if buffer_data != expected_data {
+        println!("Buffer data content mismatch");
+        return Ok(false);
+    }
+
+    Ok(true)
 }
 
 /// Read a keypair from file with improved error handling
@@ -548,7 +625,8 @@ pub fn setup_scheduler_account(
     }
 
     // Calculate the space needed for the scheduler account (adjust as needed)
-    let space = 10000; // Large enough to store the serialized scheduler
+    // Increased space to handle the serialized scheduler with tasks
+    let space = 65536; // Large enough to store the serialized scheduler
     setup_account(
         client,
         payer,

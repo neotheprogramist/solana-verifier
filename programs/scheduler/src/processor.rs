@@ -4,9 +4,9 @@ use solana_program::{
     account_info::{next_account_info, AccountInfo},
     entrypoint::ProgramResult,
     msg,
+    program_error::ProgramError,
     pubkey::Pubkey,
 };
-use std::io::Cursor;
 
 use crate::{error::SchedulerError, instruction::SchedulerInstruction, state::SchedulerAccount};
 
@@ -30,6 +30,13 @@ impl Processor {
 
         // Initialize the scheduler account
         let scheduler_account = SchedulerAccount::new();
+
+        // Ensure the account has enough space
+        if account.data_len() < borsh::to_vec(&scheduler_account).unwrap().len() {
+            msg!("Scheduler account does not have enough space");
+            return Err(SchedulerError::AccountTooSmall.into());
+        }
+
         scheduler_account.serialize(&mut *account.data.borrow_mut())?;
 
         msg!("Scheduler initialized");
@@ -59,22 +66,19 @@ impl Processor {
         let mut scheduler_account = SchedulerAccount::try_from_slice(&account.data.borrow())?;
 
         // Get the scheduler
-        let mut scheduler = scheduler_account
-            .get_scheduler()
-            .map_err(SchedulerError::from)?;
+        let mut scheduler = scheduler_account.get_scheduler()?;
 
         // Deserialize the task
-        let mut cursor = Cursor::new(task_data);
-        let task: Box<dyn SchedulerTask> = ciborium::de::from_reader(&mut cursor)
-            .map_err(|_| SchedulerError::SchedulerDeserializationError)?;
+        let task: Box<dyn SchedulerTask> = ciborium::de::from_reader(task_data)
+            .map_err(|_| ProgramError::InvalidInstructionData)?;
 
         // Push the task onto the scheduler
-        scheduler.push_task(task).map_err(SchedulerError::from)?;
+        scheduler
+            .push_task(task)
+            .map_err(|_| ProgramError::InvalidInstructionData)?;
 
         // Update the scheduler account
-        scheduler_account
-            .update_scheduler(&scheduler)
-            .map_err(SchedulerError::from)?;
+        scheduler_account.update_scheduler(&scheduler)?;
 
         // Serialize the scheduler account
         scheduler_account.serialize(&mut *account.data.borrow_mut())?;
@@ -102,17 +106,15 @@ impl Processor {
         let mut scheduler_account = SchedulerAccount::try_from_slice(&account.data.borrow())?;
 
         // Get the scheduler
-        let mut scheduler = scheduler_account
-            .get_scheduler()
-            .map_err(SchedulerError::from)?;
+        let mut scheduler = scheduler_account.get_scheduler()?;
 
         // Execute the next task
-        scheduler.execute().map_err(SchedulerError::from)?;
+        scheduler
+            .execute()
+            .map_err(|_| ProgramError::InvalidAccountData)?;
 
         // Update the scheduler account
-        scheduler_account
-            .update_scheduler(&scheduler)
-            .map_err(SchedulerError::from)?;
+        scheduler_account.update_scheduler(&scheduler)?;
 
         // Serialize the scheduler account
         scheduler_account.serialize(&mut *account.data.borrow_mut())?;
@@ -143,17 +145,15 @@ impl Processor {
         let mut scheduler_account = SchedulerAccount::try_from_slice(&account.data.borrow())?;
 
         // Get the scheduler
-        let mut scheduler = scheduler_account
-            .get_scheduler()
-            .map_err(SchedulerError::from)?;
+        let mut scheduler = scheduler_account.get_scheduler()?;
 
         // Execute all tasks
-        scheduler.execute_all().map_err(SchedulerError::from)?;
+        scheduler
+            .execute_all()
+            .map_err(|_| ProgramError::InvalidAccountData)?;
 
         // Update the scheduler account
-        scheduler_account
-            .update_scheduler(&scheduler)
-            .map_err(SchedulerError::from)?;
+        scheduler_account.update_scheduler(&scheduler)?;
 
         // Serialize the scheduler account
         scheduler_account.serialize(&mut *account.data.borrow_mut())?;

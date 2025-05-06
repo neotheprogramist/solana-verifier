@@ -19,16 +19,19 @@ pub enum StackError {
     Conversion(#[from] TryFromIntError),
 }
 
+// Reduced buffer size from 65536 to 1024 to avoid stack size issues
+const STACK_BUFFER_SIZE: usize = 1024;
+
 #[serde_as]
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct BidirectionalStack<const CAPACITY: usize, const LENGTH_SIZE: usize> {
+pub struct BidirectionalStack<const LENGTH_SIZE: usize> {
     front_index: usize,
     back_index: usize,
     #[serde_as(as = "Bytes")]
-    buffer: [u8; CAPACITY],
+    buffer: Vec<u8>,
 }
 
-impl<const CAPACITY: usize, const LENGTH_SIZE: usize> BidirectionalStack<CAPACITY, LENGTH_SIZE> {
+impl<const LENGTH_SIZE: usize> BidirectionalStack<LENGTH_SIZE> {
     pub fn new() -> Self {
         Self::default()
     }
@@ -139,7 +142,7 @@ impl<const CAPACITY: usize, const LENGTH_SIZE: usize> BidirectionalStack<CAPACIT
     }
 
     pub fn is_empty_back(&self) -> bool {
-        self.back_index == CAPACITY
+        self.back_index == self.buffer.len()
     }
 
     pub fn is_empty(&self) -> bool {
@@ -148,18 +151,16 @@ impl<const CAPACITY: usize, const LENGTH_SIZE: usize> BidirectionalStack<CAPACIT
 
     pub fn clear(&mut self) {
         self.front_index = 0;
-        self.back_index = CAPACITY;
+        self.back_index = self.buffer.len();
     }
 }
 
-impl<const CAPACITY: usize, const LENGTH_SIZE: usize> Default
-    for BidirectionalStack<CAPACITY, LENGTH_SIZE>
-{
+impl<const LENGTH_SIZE: usize> Default for BidirectionalStack<LENGTH_SIZE> {
     fn default() -> Self {
         BidirectionalStack {
-            buffer: [0; CAPACITY],
+            buffer: vec![0; STACK_BUFFER_SIZE],
             front_index: 0,
-            back_index: CAPACITY,
+            back_index: STACK_BUFFER_SIZE,
         }
     }
 }
@@ -170,7 +171,7 @@ mod tests {
 
     #[test]
     fn test_push_pop_front() {
-        let mut stack = BidirectionalStack::<10, 1>::new();
+        let mut stack = BidirectionalStack::<1>::new();
         assert!(stack.is_empty_front());
 
         stack.push_front(&[1, 2, 3]).unwrap();
@@ -184,7 +185,7 @@ mod tests {
 
     #[test]
     fn test_push_pop_back() {
-        let mut stack = BidirectionalStack::<10, 1>::new();
+        let mut stack = BidirectionalStack::<1>::new();
         assert!(stack.is_empty_back());
 
         stack.push_back(&[1, 2, 3]).unwrap();
@@ -197,7 +198,7 @@ mod tests {
 
     #[test]
     fn test_capacity() {
-        let mut stack = BidirectionalStack::<5, 1>::new();
+        let mut stack = BidirectionalStack::<1>::new();
 
         stack.push_front(&[1, 2]).unwrap();
 
@@ -208,7 +209,7 @@ mod tests {
 
     #[test]
     fn test_bidirectional() {
-        let mut stack = BidirectionalStack::<10, 1>::new();
+        let mut stack = BidirectionalStack::<1>::new();
 
         stack.push_front(&[1, 2]).unwrap();
         stack.push_back(&[3, 4]).unwrap();
@@ -222,7 +223,7 @@ mod tests {
 
     #[test]
     fn test_clear() {
-        let mut stack = BidirectionalStack::<10, 1>::new();
+        let mut stack = BidirectionalStack::<1>::new();
 
         stack.push_front(&[1, 2]).unwrap();
         stack.push_back(&[3, 4]).unwrap();

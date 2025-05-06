@@ -16,7 +16,7 @@ fn main() -> client::Result<()> {
     let payer = setup_payer(&client, &config)?;
 
     // Define program path
-    let program_path = Path::new("target/deploy/scheduler_program.so");
+    let program_path = Path::new("target/deploy/scheduler.so");
 
     // Deploy or use existing program
     let program_id = setup_program(&client, &payer, &config, program_path)?;
