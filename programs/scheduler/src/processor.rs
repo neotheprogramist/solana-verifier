@@ -1,5 +1,5 @@
 use crate::utils::SchedulerTask;
-use borsh::{BorshDeserialize, BorshSerialize};
+use borsh::BorshDeserialize;
 use solana_program::{
     account_info::{next_account_info, AccountInfo},
     entrypoint::ProgramResult,
@@ -7,36 +7,25 @@ use solana_program::{
     program_error::ProgramError,
     pubkey::Pubkey,
 };
+use utils::AccountCast;
 
-use crate::{error::SchedulerError, instruction::SchedulerInstruction, state::SchedulerAccount};
+use crate::{instruction::SchedulerInstruction, utils::Scheduler};
 
 /// Program state handler
 pub struct Processor;
 
 impl Processor {
     /// Process the push task instruction
-    pub fn process_push_task(
-        program_id: &Pubkey,
-        accounts: &[AccountInfo],
-        task_data: &[u8],
-    ) -> ProgramResult {
+    pub fn process_push_task(accounts: &[AccountInfo], task_data: &[u8]) -> ProgramResult {
         msg!("Processing PushTask instruction");
 
         // Get the scheduler account
         let accounts_iter = &mut accounts.iter();
         let account = next_account_info(accounts_iter)?;
 
-        // The account must be owned by the program in order to modify its data
-        if account.owner != program_id {
-            msg!("Scheduler account does not have the correct program id");
-            return Err(SchedulerError::InvalidOwner.into());
-        }
-
-        // Deserialize the scheduler account
-        let mut scheduler_account = SchedulerAccount::try_from_slice(&account.data.borrow())?;
-
         // Get the scheduler
-        let mut scheduler = scheduler_account.get_scheduler()?;
+        let mut scheduler_account_data = account.try_borrow_mut_data()?;
+        let scheduler = Scheduler::cast_mut(&mut scheduler_account_data);
 
         // Deserialize the task
         let task: Box<dyn SchedulerTask> = ciborium::de::from_reader(task_data)
@@ -47,47 +36,27 @@ impl Processor {
             .push_task(task)
             .map_err(|_| ProgramError::InvalidInstructionData)?;
 
-        // Update the scheduler account
-        scheduler_account.update_scheduler(&scheduler)?;
-
-        // Serialize the scheduler account
-        scheduler_account.serialize(&mut *account.data.borrow_mut())?;
-
         msg!("Task pushed to scheduler");
 
         Ok(())
     }
 
     /// Process the execute task instruction
-    pub fn process_execute_task(program_id: &Pubkey, accounts: &[AccountInfo]) -> ProgramResult {
+    pub fn process_execute_task(accounts: &[AccountInfo]) -> ProgramResult {
         msg!("Processing ExecuteTask instruction");
 
         // Get the scheduler account
         let accounts_iter = &mut accounts.iter();
         let account = next_account_info(accounts_iter)?;
 
-        // The account must be owned by the program in order to modify its data
-        if account.owner != program_id {
-            msg!("Scheduler account does not have the correct program id");
-            return Err(SchedulerError::InvalidOwner.into());
-        }
-
-        // Deserialize the scheduler account
-        let mut scheduler_account = SchedulerAccount::try_from_slice(&account.data.borrow())?;
-
         // Get the scheduler
-        let mut scheduler = scheduler_account.get_scheduler()?;
+        let mut scheduler_account_data = account.try_borrow_mut_data()?;
+        let scheduler = Scheduler::cast_mut(&mut scheduler_account_data);
 
         // Execute the next task
         scheduler
             .execute()
             .map_err(|_| ProgramError::InvalidAccountData)?;
-
-        // Update the scheduler account
-        scheduler_account.update_scheduler(&scheduler)?;
-
-        // Serialize the scheduler account
-        scheduler_account.serialize(&mut *account.data.borrow_mut())?;
 
         msg!("Task executed");
 
@@ -97,21 +66,20 @@ impl Processor {
 
 /// Instruction processor
 pub fn process_instruction(
-    program_id: &Pubkey,
+    _program_id: &Pubkey,
     accounts: &[AccountInfo],
     instruction_data: &[u8],
 ) -> ProgramResult {
     msg!("Scheduler program entrypoint");
 
     // Unpack the instruction
-    let instruction = SchedulerInstruction::unpack(instruction_data)?;
+    let instruction = SchedulerInstruction::try_from_slice(instruction_data)?;
 
     // Process the instruction
     match instruction {
-        SchedulerInstruction::Initialize => Processor::process_initialize(program_id, accounts),
         SchedulerInstruction::PushTask(task_data) => {
-            Processor::process_push_task(program_id, accounts, &task_data)
+            Processor::process_push_task(accounts, &task_data)
         }
-        SchedulerInstruction::ExecuteTask => Processor::process_execute_task(program_id, accounts),
+        SchedulerInstruction::ExecuteTask => Processor::process_execute_task(accounts),
     }
 }
