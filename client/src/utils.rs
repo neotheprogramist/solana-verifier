@@ -166,7 +166,7 @@ pub fn setup_program(
         ));
     }
 
-    let program_data = fs::read(&config.program_path).map_err(|e| ClientError::IoError(e))?;
+    let program_data = fs::read(&config.program_path).map_err(ClientError::IoError)?;
     println!("Program binary size: {} bytes", program_data.len());
 
     // Deploy the program or use existing deployment
@@ -224,7 +224,7 @@ pub fn setup_greeting_account(
         let space = std::mem::size_of::<GreetingAccount>();
         let rent = client
             .get_minimum_balance_for_rent_exemption(space)
-            .map_err(|e| ClientError::SolanaClientError(e))?;
+            .map_err(ClientError::SolanaClientError)?;
 
         // Create a transaction to create the greeting account
         let create_account_ix = system_instruction::create_account(
@@ -237,7 +237,7 @@ pub fn setup_greeting_account(
 
         let blockhash = client
             .get_latest_blockhash()
-            .map_err(|e| ClientError::SolanaClientError(e))?;
+            .map_err(ClientError::SolanaClientError)?;
 
         let create_tx = Transaction::new_signed_with_payer(
             &[create_account_ix],
@@ -281,7 +281,7 @@ pub fn interact_with_program(
     // Get latest blockhash
     let blockhash = client
         .get_latest_blockhash()
-        .map_err(|e| ClientError::SolanaClientError(e))?;
+        .map_err(ClientError::SolanaClientError)?;
 
     // Create a transaction with the instruction
     let transaction = Transaction::new_signed_with_payer(
@@ -305,7 +305,7 @@ pub fn interact_with_program(
     // Read the greeting account data
     let account_data = client
         .get_account_data(&greeting_account.pubkey())
-        .map_err(|e| ClientError::SolanaClientError(e))?;
+        .map_err(ClientError::SolanaClientError)?;
     let greeting_account_data = GreetingAccount::try_from_slice(&account_data)
         .map_err(|e| ClientError::BorshError(e.to_string()))?;
     println!("Greeting counter: {}", greeting_account_data.counter);
@@ -337,7 +337,7 @@ pub fn deploy_program(
         .get_minimum_balance_for_rent_exemption(
             buffer_data_len + UpgradeableLoaderState::size_of_buffer_metadata(),
         )
-        .map_err(|e| ClientError::SolanaClientError(e))?;
+        .map_err(ClientError::SolanaClientError)?;
 
     // Create buffer account
     let create_buffer_ix = bpf_loader_upgradeable::create_buffer(
@@ -352,7 +352,7 @@ pub fn deploy_program(
     // Get latest blockhash
     let blockhash = client
         .get_latest_blockhash()
-        .map_err(|e| ClientError::SolanaClientError(e))?;
+        .map_err(ClientError::SolanaClientError)?;
 
     // Create and send transaction
     let create_buffer_tx = Transaction::new_signed_with_payer(
@@ -378,7 +378,7 @@ pub fn deploy_program(
         .get_minimum_balance_for_rent_exemption(
             programdata_len + UpgradeableLoaderState::size_of_programdata_metadata(),
         )
-        .map_err(|e| ClientError::SolanaClientError(e))?;
+        .map_err(ClientError::SolanaClientError)?;
 
     // Create deploy instruction
     let deploy_ix = bpf_loader_upgradeable::deploy_with_max_program_len(
@@ -394,7 +394,7 @@ pub fn deploy_program(
     // Get latest blockhash
     let blockhash = client
         .get_latest_blockhash()
-        .map_err(|e| ClientError::SolanaClientError(e))?;
+        .map_err(ClientError::SolanaClientError)?;
 
     // Create and send transaction
     let deploy_tx = Transaction::new_signed_with_payer(
@@ -436,7 +436,7 @@ pub fn write_program_to_buffer(
         // Get latest blockhash for each chunk to avoid expired blockhash issues
         let blockhash = client
             .get_latest_blockhash()
-            .map_err(|e| ClientError::SolanaClientError(e))?;
+            .map_err(ClientError::SolanaClientError)?;
 
         let write_tx = Transaction::new_signed_with_payer(
             &[write_ix],
@@ -468,10 +468,9 @@ pub fn write_program_to_buffer(
 
 /// Read a keypair from file with improved error handling
 pub fn read_keypair_file<P: AsRef<Path>>(path: P) -> Result<Keypair> {
-    let file_content = fs::read_to_string(&path).map_err(|e| ClientError::IoError(e))?;
+    let file_content = fs::read_to_string(&path).map_err(ClientError::IoError)?;
 
-    let bytes: Vec<u8> =
-        serde_json::from_str(&file_content).map_err(|e| ClientError::SerdeError(e))?;
+    let bytes: Vec<u8> = serde_json::from_str(&file_content).map_err(ClientError::SerdeError)?;
 
     Keypair::from_bytes(&bytes).map_err(|e| {
         ClientError::KeypairError(format!("Failed to create keypair from bytes: {}", e))
@@ -480,7 +479,7 @@ pub fn read_keypair_file<P: AsRef<Path>>(path: P) -> Result<Keypair> {
 
 /// Write a keypair to file with improved error handling
 pub fn write_keypair_file<P: AsRef<Path>>(keypair: &Keypair, path: P) -> Result<()> {
-    let json = serde_json::to_string(&keypair.to_bytes().to_vec())
-        .map_err(|e| ClientError::SerdeError(e))?;
-    fs::write(&path, json).map_err(|e| ClientError::IoError(e))
+    let json =
+        serde_json::to_string(&keypair.to_bytes().to_vec()).map_err(ClientError::SerdeError)?;
+    fs::write(&path, json).map_err(ClientError::IoError)
 }
