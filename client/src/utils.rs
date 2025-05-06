@@ -1,3 +1,5 @@
+#![allow(deprecated)]
+
 use borsh::BorshDeserialize;
 use serde_json;
 use solana_client::rpc_client::RpcClient;
