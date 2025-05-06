@@ -178,7 +178,15 @@ pub fn setup_program(
     let program_data = fs::read(program_path).map_err(ClientError::IoError)?;
     println!("Program binary size: {} bytes", program_data.len());
 
-    let program_keypair_path = config.keypairs_dir.join("program-keypair.json");
+    // Extract program name from path for the keypair filename
+    let program_name = program_path
+        .file_stem()
+        .and_then(|stem| stem.to_str())
+        .unwrap_or("program");
+
+    let program_keypair_path = config
+        .keypairs_dir
+        .join(format!("{}-keypair.json", program_name));
 
     // Deploy the program or use existing deployment
     if program_keypair_path.exists() {
