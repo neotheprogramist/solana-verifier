@@ -12,3 +12,4 @@ no-entrypoint = []
 [dependencies]
 borsh.workspace = true
 solana-program.workspace = true
+thiserror.workspace = true

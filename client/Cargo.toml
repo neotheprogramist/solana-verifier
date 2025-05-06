@@ -11,6 +11,6 @@ solana-cli-config = "2.2.1"
 solana-client = "2.2.1"
 solana-program.workspace = true
 solana-sdk = "2.2.1"
-thiserror = "2.0.12"
+thiserror.workspace = true
 
 verifier.workspace = true

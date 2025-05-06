@@ -15,7 +15,7 @@ use solana_sdk::{
 use std::{fs, path::Path, thread::sleep};
 
 use crate::{ClientError, Config, Result};
-use verifier::GreetingAccount;
+use verifier::state::GreetingAccount;
 
 /// Initialize the Solana RPC client and verify connection
 pub fn initialize_client(config: &Config) -> Result<RpcClient> {
