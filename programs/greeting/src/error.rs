@@ -1,9 +1,9 @@
 use solana_program::{msg, program_error::ProgramError};
 use thiserror::Error;
 
-/// Custom errors for the verifier program
+/// Custom errors for the greeting program
 #[derive(Error, Debug)]
-pub enum VerifierError {
+pub enum GreetingError {
     #[error("Account not owned by program")]
     InvalidOwner,
 
@@ -23,8 +23,8 @@ pub enum VerifierError {
     SchedulerSerializationError,
 }
 
-impl From<VerifierError> for ProgramError {
-    fn from(e: VerifierError) -> Self {
+impl From<GreetingError> for ProgramError {
+    fn from(e: GreetingError) -> Self {
         msg!("Error: {}", e);
         ProgramError::Custom(e as u32)
     }

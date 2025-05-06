@@ -1,4 +1,3 @@
-use borsh::BorshDeserialize;
 use client::{
     initialize_client, interact_with_program_instructions, setup_account, setup_payer,
     setup_program, ClientError, Config,
@@ -55,12 +54,15 @@ fn main() -> client::Result<()> {
     )?;
 
     println!("Greeting program interaction completed successfully!");
-    let account_data = client
+    let mut account_data = client
         .get_account_data(&greeting_account.pubkey())
         .map_err(ClientError::SolanaClientError)?;
-    let greeting_account_data = GreetingAccount::try_from_slice(&account_data)
-        .map_err(|e| ClientError::BorshError(e.to_string()))?;
-    println!("Greeting counter: {}", greeting_account_data.counter);
+    let greeting_account = GreetingAccount::cast_mut(&mut account_data);
+    println!("Greeting counter: {}", greeting_account.counter);
+    println!(
+        "Greeting double counter: {}",
+        greeting_account.double_counter
+    );
 
     Ok(())
 }

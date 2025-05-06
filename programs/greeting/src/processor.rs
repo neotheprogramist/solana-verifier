@@ -1,4 +1,4 @@
-use borsh::{BorshDeserialize, BorshSerialize};
+use borsh::BorshDeserialize;
 use solana_program::{
     account_info::{next_account_info, AccountInfo},
     entrypoint::ProgramResult,
@@ -6,35 +6,25 @@ use solana_program::{
     pubkey::Pubkey,
 };
 
-use crate::{error::VerifierError, instruction::GreetingInstruction, state::GreetingAccount};
+use crate::{instruction::GreetingInstruction, state::GreetingAccount};
 
 /// Program state handler
 pub struct Processor;
 
 impl Processor {
     /// Process the increment counter instruction
-    pub fn process_increment_counter(
-        program_id: &Pubkey,
-        accounts: &[AccountInfo],
-    ) -> ProgramResult {
+    pub fn process_increment_counter(accounts: &[AccountInfo]) -> ProgramResult {
         msg!("Processing IncrementCounter instruction");
 
         // Get the account to increment counter
         let accounts_iter = &mut accounts.iter();
         let account = next_account_info(accounts_iter)?;
 
-        // The account must be owned by the program in order to modify its data
-        if account.owner != program_id {
-            msg!("Greeted account does not have the correct program id");
-            return Err(VerifierError::InvalidOwner.into());
-        }
-
         // Increment and store the number of times the account has been greeted
-        let mut greeting_account = GreetingAccount::try_from_slice(&account.data.borrow())?;
+        let mut data = account.try_borrow_mut_data()?;
+        let greeting_account = GreetingAccount::cast_mut(*data);
         greeting_account.counter += 1;
-        greeting_account.serialize(&mut *account.data.borrow_mut())?;
-
-        msg!("Greeted {} time(s)!", greeting_account.counter);
+        greeting_account.double_counter += 2;
 
         Ok(())
     }
@@ -42,7 +32,7 @@ impl Processor {
 
 /// Instruction processor
 pub fn process_instruction(
-    program_id: &Pubkey,
+    _program_id: &Pubkey,
     accounts: &[AccountInfo],
     instruction_data: &[u8],
 ) -> ProgramResult {
@@ -53,8 +43,6 @@ pub fn process_instruction(
 
     // Process the instruction
     match instruction {
-        GreetingInstruction::IncrementCounter => {
-            Processor::process_increment_counter(program_id, accounts)
-        }
+        GreetingInstruction::IncrementCounter => Processor::process_increment_counter(accounts),
     }
 }
