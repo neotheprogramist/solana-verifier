@@ -1,6 +1,5 @@
 use client::{
-    initialize_client, initialize_scheduler, setup_payer, setup_program, setup_scheduler_account,
-    Config,
+    initialize_client, initialize_scheduler, setup_account, setup_payer, setup_program, Config,
 };
 use std::path::Path;
 
@@ -22,7 +21,15 @@ fn main() -> client::Result<()> {
     let program_id = setup_program(&client, &payer, &config, program_path)?;
 
     // Setup scheduler account
-    let scheduler_account = setup_scheduler_account(&client, &payer, &program_id, &config)?;
+    let space = 65536; // Large enough to store the serialized scheduler
+    let scheduler_account = setup_account(
+        &client,
+        &payer,
+        &program_id,
+        &config,
+        space,
+        "scheduler-account",
+    )?;
 
     // Initialize the scheduler
     initialize_scheduler(&client, &payer, &program_id, &scheduler_account)?;

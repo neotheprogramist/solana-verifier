@@ -23,12 +23,6 @@ pub enum SchedulerInstruction {
     /// Accounts expected:
     /// 0. `[writable]` The scheduler account
     ExecuteTask,
-
-    /// Execute all tasks in the scheduler
-    ///
-    /// Accounts expected:
-    /// 0. `[writable]` The scheduler account
-    ExecuteAllTasks,
 }
 
 impl SchedulerInstruction {
@@ -45,7 +39,6 @@ impl SchedulerInstruction {
                 Self::PushTask(task_data)
             }
             2 => Self::ExecuteTask,
-            3 => Self::ExecuteAllTasks,
             _ => return Err(ProgramError::InvalidInstructionData),
         })
     }

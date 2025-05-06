@@ -612,31 +612,6 @@ pub fn write_keypair_file<P: AsRef<Path>>(keypair: &Keypair, path: P) -> Result<
     fs::write(&path, json).map_err(ClientError::IoError)
 }
 
-/// Setup the scheduler account - either use existing or create a new one (legacy function)
-pub fn setup_scheduler_account(
-    client: &RpcClient,
-    payer: &Keypair,
-    program_id: &solana_sdk::pubkey::Pubkey,
-    config: &Config,
-) -> Result<Keypair> {
-    // Ensure keypairs directory exists
-    if !config.keypairs_dir.exists() {
-        fs::create_dir_all(&config.keypairs_dir).map_err(ClientError::IoError)?;
-    }
-
-    // Calculate the space needed for the scheduler account (adjust as needed)
-    // Increased space to handle the serialized scheduler with tasks
-    let space = 65536; // Large enough to store the serialized scheduler
-    setup_account(
-        client,
-        payer,
-        program_id,
-        config,
-        space,
-        "scheduler-account",
-    )
-}
-
 /// Initialize the scheduler account
 pub fn initialize_scheduler(
     client: &RpcClient,
@@ -743,44 +718,5 @@ pub fn execute_task(
         .map_err(|e| ClientError::TransactionError(format!("Failed to execute task: {}", e)))?;
 
     println!("Task executed successfully!");
-    Ok(())
-}
-
-/// Execute all tasks in the scheduler
-pub fn execute_all_tasks(
-    client: &RpcClient,
-    payer: &Keypair,
-    program_id: &solana_sdk::pubkey::Pubkey,
-    scheduler_account: &Keypair,
-) -> Result<()> {
-    use scheduler::instruction::SchedulerInstruction;
-
-    println!("Executing all tasks from scheduler...");
-
-    // Create the execute all tasks instruction
-    let execute_all_ix = Instruction::new_with_borsh(
-        *program_id,
-        &SchedulerInstruction::ExecuteAllTasks,
-        vec![AccountMeta::new(scheduler_account.pubkey(), false)],
-    );
-
-    let blockhash = client
-        .get_latest_blockhash()
-        .map_err(ClientError::SolanaClientError)?;
-
-    let execute_all_tx = Transaction::new_signed_with_payer(
-        &[execute_all_ix],
-        Some(&payer.pubkey()),
-        &[payer],
-        blockhash,
-    );
-
-    client
-        .send_and_confirm_transaction(&execute_all_tx)
-        .map_err(|e| {
-            ClientError::TransactionError(format!("Failed to execute all tasks: {}", e))
-        })?;
-
-    println!("All tasks executed successfully!");
     Ok(())
 }

@@ -123,45 +123,6 @@ impl Processor {
 
         Ok(())
     }
-
-    /// Process the execute all tasks instruction
-    pub fn process_execute_all_tasks(
-        program_id: &Pubkey,
-        accounts: &[AccountInfo],
-    ) -> ProgramResult {
-        msg!("Processing ExecuteAllTasks instruction");
-
-        // Get the scheduler account
-        let accounts_iter = &mut accounts.iter();
-        let account = next_account_info(accounts_iter)?;
-
-        // The account must be owned by the program in order to modify its data
-        if account.owner != program_id {
-            msg!("Scheduler account does not have the correct program id");
-            return Err(SchedulerError::InvalidOwner.into());
-        }
-
-        // Deserialize the scheduler account
-        let mut scheduler_account = SchedulerAccount::try_from_slice(&account.data.borrow())?;
-
-        // Get the scheduler
-        let mut scheduler = scheduler_account.get_scheduler()?;
-
-        // Execute all tasks
-        scheduler
-            .execute_all()
-            .map_err(|_| ProgramError::InvalidAccountData)?;
-
-        // Update the scheduler account
-        scheduler_account.update_scheduler(&scheduler)?;
-
-        // Serialize the scheduler account
-        scheduler_account.serialize(&mut *account.data.borrow_mut())?;
-
-        msg!("All tasks executed");
-
-        Ok(())
-    }
 }
 
 /// Instruction processor
@@ -182,8 +143,5 @@ pub fn process_instruction(
             Processor::process_push_task(program_id, accounts, &task_data)
         }
         SchedulerInstruction::ExecuteTask => Processor::process_execute_task(program_id, accounts),
-        SchedulerInstruction::ExecuteAllTasks => {
-            Processor::process_execute_all_tasks(program_id, accounts)
-        }
     }
 }
