@@ -29,6 +29,9 @@ pub enum ClientError {
 
     #[error("Failed to connect to validator: {0}")]
     ConnectionError(String),
+
+    #[error("Serialization error: {0}")]
+    SerializationError(String),
 }
 
 pub type Result<T> = std::result::Result<T, ClientError>;

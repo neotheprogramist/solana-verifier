@@ -1,0 +1,19 @@
+[package]
+name = "scheduler-program"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+
+[features]
+no-entrypoint = []
+
+[dependencies]
+borsh.workspace = true
+ciborium.workspace = true
+scheduler.workspace = true
+serde.workspace = true
+solana-program.workspace = true
+thiserror.workspace = true
+typetag.workspace = true

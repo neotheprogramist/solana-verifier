@@ -30,6 +30,10 @@ pub struct Config {
     #[clap(long, default_value = "greeting-keypair.json")]
     pub greeting_keypair_path: PathBuf,
 
+    /// Directory for data files
+    #[clap(long, default_value = "data")]
+    pub data_dir: PathBuf,
+
     /// Amount of SOL to airdrop initially
     #[clap(long, default_value = "2000000000")]
     pub airdrop_amount: u64,
