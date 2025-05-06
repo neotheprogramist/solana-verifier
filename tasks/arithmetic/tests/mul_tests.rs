@@ -1,5 +1,5 @@
 use arithmetic::mul::Mul;
-use scheduler::Scheduler;
+use scheduler::utils::Scheduler;
 
 #[test]
 fn test_mul_zero() {

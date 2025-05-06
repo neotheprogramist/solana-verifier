@@ -566,7 +566,7 @@ pub fn initialize_scheduler(
     program_id: &solana_sdk::pubkey::Pubkey,
     scheduler_account: &Keypair,
 ) -> Result<()> {
-    use scheduler_program::instruction::SchedulerInstruction;
+    use scheduler::instruction::SchedulerInstruction;
 
     println!("Initializing scheduler account...");
 
@@ -598,9 +598,9 @@ pub fn push_task(
     payer: &Keypair,
     program_id: &solana_sdk::pubkey::Pubkey,
     scheduler_account: &Keypair,
-    task: &dyn scheduler::SchedulerTask,
+    task: &dyn scheduler::utils::SchedulerTask,
 ) -> Result<()> {
-    use scheduler_program::instruction::SchedulerInstruction;
+    use scheduler::instruction::SchedulerInstruction;
 
     println!("Pushing task to scheduler...");
 
@@ -638,7 +638,7 @@ pub fn execute_task(
     program_id: &solana_sdk::pubkey::Pubkey,
     scheduler_account: &Keypair,
 ) -> Result<()> {
-    use scheduler_program::instruction::SchedulerInstruction;
+    use scheduler::instruction::SchedulerInstruction;
 
     println!("Executing task from scheduler...");
 
@@ -675,7 +675,7 @@ pub fn execute_all_tasks(
     program_id: &solana_sdk::pubkey::Pubkey,
     scheduler_account: &Keypair,
 ) -> Result<()> {
-    use scheduler_program::instruction::SchedulerInstruction;
+    use scheduler::instruction::SchedulerInstruction;
 
     println!("Executing all tasks from scheduler...");
 

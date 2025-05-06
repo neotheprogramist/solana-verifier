@@ -1,6 +1,6 @@
 use client::{
-    initialize_client, initialize_scheduler, setup_payer,
-    setup_program, setup_scheduler_account, Config,
+    initialize_client, initialize_scheduler, setup_payer, setup_program, setup_scheduler_account,
+    Config,
 };
 use std::path::Path;
 

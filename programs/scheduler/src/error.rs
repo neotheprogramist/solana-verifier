@@ -1,46 +1,52 @@
-use crate::stack::StackError;
-use std::io;
+use solana_program::{msg, program_error::ProgramError};
 use thiserror::Error;
 
-/// Result type for the scheduler crate.
-pub type Result<T> = std::result::Result<T, Error>;
+/// Custom errors for the scheduler program
+#[derive(Error, Debug)]
+pub enum SchedulerError {
+    #[error("Account not owned by program")]
+    InvalidOwner,
 
-/// Errors that can occur in the scheduler crate.
-#[derive(Debug, Error)]
-pub enum Error {
-    /// The stack is empty and cannot be popped from.
-    #[error("Empty stack - attempted to read from an empty stack")]
-    EmptyStack,
+    #[error("Error deserializing scheduler")]
+    SchedulerDeserializationError,
 
-    /// Error propagated from the stack module.
-    #[error(transparent)]
-    StackCapacity(#[from] StackError),
+    #[error("Error pushing task to scheduler")]
+    SchedulerTaskPushError,
 
-    /// Error during serialization.
-    #[error(transparent)]
-    Serialization(#[from] ciborium::ser::Error<io::Error>),
+    #[error("Error executing scheduler task")]
+    SchedulerExecutionError,
 
-    /// Error during deserialization.
-    #[error(transparent)]
-    Deserialization(#[from] ciborium::de::Error<io::Error>),
+    #[error("Error popping data from scheduler")]
+    SchedulerDataPopError,
 
-    /// The task data length is invalid.
-    #[error("Invalid task length - task data exceeds maximum allowed size")]
-    InvalidTaskLength,
+    #[error("Error serializing scheduler")]
+    SchedulerSerializationError,
 
-    /// Error during task execution.
-    #[error("Execution error: {0}")]
-    Execution(String),
+    #[error("Invalid instruction")]
+    InvalidInstruction,
+}
 
-    /// Error in task implementation.
-    #[error("Task error: {0}")]
-    Task(String),
+impl From<SchedulerError> for ProgramError {
+    fn from(e: SchedulerError) -> Self {
+        msg!("Error: {}", e);
+        ProgramError::Custom(e as u32)
+    }
+}
 
-    /// Error for invalid data.
-    #[error("Invalid data: {0}")]
-    InvalidData(String),
-
-    /// General IO error.
-    #[error(transparent)]
-    Io(#[from] io::Error),
+impl From<crate::utils::Error> for SchedulerError {
+    fn from(e: crate::utils::Error) -> Self {
+        match e {
+            crate::utils::Error::Deserialization(_) => {
+                SchedulerError::SchedulerDeserializationError
+            }
+            crate::utils::Error::Serialization(_) => SchedulerError::SchedulerSerializationError,
+            crate::utils::Error::StackCapacity(_) => SchedulerError::SchedulerTaskPushError,
+            crate::utils::Error::EmptyStack => SchedulerError::SchedulerDataPopError,
+            crate::utils::Error::Execution(_) => SchedulerError::SchedulerExecutionError,
+            crate::utils::Error::InvalidTaskLength => SchedulerError::SchedulerTaskPushError,
+            crate::utils::Error::Task(_) => SchedulerError::SchedulerExecutionError,
+            crate::utils::Error::InvalidData(_) => SchedulerError::SchedulerDeserializationError,
+            crate::utils::Error::Io(_) => SchedulerError::SchedulerDeserializationError,
+        }
+    }
 }

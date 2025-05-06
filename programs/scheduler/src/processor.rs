@@ -1,5 +1,5 @@
+use crate::utils::SchedulerTask;
 use borsh::{BorshDeserialize, BorshSerialize};
-use scheduler::SchedulerTask;
 use solana_program::{
     account_info::{next_account_info, AccountInfo},
     entrypoint::ProgramResult,

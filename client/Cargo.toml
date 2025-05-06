@@ -17,4 +17,3 @@ thiserror.workspace = true
 arithmetic.workspace = true
 greeting.workspace = true
 scheduler.workspace = true
-scheduler-program.workspace = true

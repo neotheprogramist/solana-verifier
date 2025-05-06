@@ -18,7 +18,6 @@ typetag = "0.2.20"
 client = { path = "./client" }
 greeting = { path = "./programs/greeting" }
 scheduler = { path = "./programs/scheduler" }
-scheduler-program = { path = "./programs/scheduler-program" }
 
 arithmetic = { path = "./tasks/arithmetic" }
 stark = { path = "./tasks/stark" }

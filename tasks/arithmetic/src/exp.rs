@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use scheduler::{Result, Scheduler, SchedulerTask};
+use scheduler::utils::{Result, Scheduler, SchedulerTask};
 
 use crate::mul::Mul;
 
@@ -74,7 +74,7 @@ impl SchedulerTask for ExpInternal {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use scheduler::Scheduler;
+    use scheduler::utils::Scheduler;
 
     #[test]
     fn test_exp_normal() {

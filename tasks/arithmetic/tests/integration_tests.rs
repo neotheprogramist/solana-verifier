@@ -3,7 +3,7 @@ use arithmetic::add::Add;
 use arithmetic::exp::Exp;
 use arithmetic::fib::Fib;
 use arithmetic::mul::Mul;
-use scheduler::Scheduler;
+use scheduler::utils::Scheduler;
 
 // Include the module tests
 mod add_tests;

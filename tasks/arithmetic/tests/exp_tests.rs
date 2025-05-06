@@ -1,5 +1,5 @@
 use arithmetic::exp::Exp;
-use scheduler::Scheduler;
+use scheduler::utils::Scheduler;
 
 #[test]
 fn test_exp_zero_exponent() {

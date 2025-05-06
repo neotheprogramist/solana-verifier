@@ -1,6 +1,5 @@
 use client::{
-    initialize_client, interact_with_program, setup_account, setup_payer, setup_program,
-    Config,
+    initialize_client, interact_with_program, setup_account, setup_payer, setup_program, Config,
 };
 use greeting::state::GreetingAccount;
 use std::{mem::size_of, path::Path};
@@ -24,7 +23,14 @@ fn main() -> client::Result<()> {
 
     // Setup greeting account
     let space = size_of::<GreetingAccount>();
-    let greeting_account = setup_account(&client, &payer, &program_id, &config, space, "greeting-account")?;
+    let greeting_account = setup_account(
+        &client,
+        &payer,
+        &program_id,
+        &config,
+        space,
+        "greeting-account",
+    )?;
 
     // Interact with the program
     interact_with_program(&client, &payer, &program_id, &greeting_account)?;

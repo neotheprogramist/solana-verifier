@@ -1,5 +1,5 @@
 use arithmetic::fib::Fib;
-use scheduler::Scheduler;
+use scheduler::utils::Scheduler;
 
 #[test]
 fn test_fib_base_cases() {
