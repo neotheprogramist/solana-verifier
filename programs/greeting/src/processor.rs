@@ -6,7 +6,7 @@ use solana_program::{
     pubkey::Pubkey,
 };
 
-use crate::{error::VerifierError, instruction::VerifierInstruction, state::GreetingAccount};
+use crate::{error::VerifierError, instruction::GreetingInstruction, state::GreetingAccount};
 
 /// Program state handler
 pub struct Processor;
@@ -49,11 +49,11 @@ pub fn process_instruction(
     msg!("Hello World Rust program entrypoint");
 
     // Unpack the instruction
-    let instruction = VerifierInstruction::unpack(instruction_data)?;
+    let instruction = GreetingInstruction::unpack(instruction_data)?;
 
     // Process the instruction
     match instruction {
-        VerifierInstruction::IncrementCounter => {
+        GreetingInstruction::IncrementCounter => {
             Processor::process_increment_counter(program_id, accounts)
         }
     }

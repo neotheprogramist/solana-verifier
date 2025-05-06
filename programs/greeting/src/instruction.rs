@@ -3,7 +3,7 @@ use solana_program::program_error::ProgramError;
 
 /// Instructions supported by the verifier program
 #[derive(BorshSerialize, BorshDeserialize, Debug)]
-pub enum VerifierInstruction {
+pub enum GreetingInstruction {
     /// Increments the counter in the greeting account
     ///
     /// Accounts expected:
@@ -11,8 +11,8 @@ pub enum VerifierInstruction {
     IncrementCounter,
 }
 
-impl VerifierInstruction {
-    /// Unpacks a byte buffer into a VerifierInstruction
+impl GreetingInstruction {
+    /// Unpacks a byte buffer into a GreetingInstruction
     pub fn unpack(input: &[u8]) -> Result<Self, ProgramError> {
         if input.is_empty() {
             return Ok(Self::IncrementCounter);

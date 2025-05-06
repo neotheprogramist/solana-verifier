@@ -5,4 +5,6 @@ use borsh::{BorshDeserialize, BorshSerialize};
 pub struct GreetingAccount {
     /// number of greetings
     pub counter: u32,
+
+    pub data: [u8; 1024],
 }

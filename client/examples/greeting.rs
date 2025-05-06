@@ -49,6 +49,7 @@ fn main() -> client::Result<()> {
 
     // Setup greeting account
     let space = size_of::<GreetingAccount>();
+    println!("Greeting account space: {}", space);
     let greeting_account = setup_account(
         &client,
         &payer,

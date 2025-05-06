@@ -19,7 +19,7 @@ pub struct Config {
     pub keypairs_dir: PathBuf,
 
     /// Amount of SOL to airdrop initially
-    #[clap(long, default_value = "2000000000")]
+    #[clap(long, default_value = "200000000000")]
     pub airdrop_amount: u64,
 
     /// Multiplier for additional airdrop
