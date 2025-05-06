@@ -19,6 +19,7 @@ Cargo.lock
 #.idea/
 
 test-ledger
+*-keypair.json
 
 
 # General
