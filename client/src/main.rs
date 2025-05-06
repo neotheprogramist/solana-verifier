@@ -1,5 +1,6 @@
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, Context, Result};
 use borsh::BorshDeserialize;
+use serde_json;
 use solana_client::rpc_client::RpcClient;
 use solana_program::{
     bpf_loader_upgradeable,
@@ -7,155 +8,249 @@ use solana_program::{
     system_instruction,
 };
 use solana_sdk::{
-    bpf_loader_upgradeable::UpgradeableLoaderState, commitment_config::CommitmentConfig, signature::{Keypair, Signer, read_keypair_file as solana_read_keypair_file}, transaction::Transaction
+    bpf_loader_upgradeable::UpgradeableLoaderState,
+    commitment_config::CommitmentConfig,
+    signature::{Keypair, Signer},
+    transaction::Transaction,
 };
-use std::{fs, path::Path, time::Duration};
+use std::{fs, path::Path, thread::sleep, time::Duration};
 use verifier::GreetingAccount;
 
+// Configuration constants
+const RPC_URL: &str = "http://localhost:8899";
+const RPC_TIMEOUT_SECS: u64 = 30;
+const PROGRAM_PATH: &str = "../target/deploy/verifier.so";
+const PAYER_KEYPAIR_PATH: &str = "payer-keypair.json";
+const PROGRAM_KEYPAIR_PATH: &str = "program-keypair.json";
+const GREETING_KEYPAIR_PATH: &str = "greeting-keypair.json";
+const AIRDROP_AMOUNT: u64 = 2_000_000_000; // 2 SOL
+const ADDITIONAL_AIRDROP_MULTIPLIER: u64 = 5;
+const TRANSACTION_RETRY_COUNT: usize = 10;
+const RETRY_SLEEP_DURATION: Duration = Duration::from_secs(1);
+const BUFFER_CHUNK_SIZE: usize = 900; // Slightly less than 1KB to account for transaction overhead
+
+/// Main entry point for the Solana program client
 fn main() -> Result<()> {
-    // Use local test validator instead of the Solana CLI config
-    let rpc_url = "http://localhost:8899".to_string();
-    println!("Using RPC URL: {}", rpc_url);
-    
-    // Create client with timeout for better error messages
+    // Initialize the Solana client
+    let client = initialize_client().context("Failed to initialize Solana client")?;
+
+    // Setup the payer account
+    let payer = setup_payer(&client).context("Failed to setup payer account")?;
+
+    // Deploy or use existing program
+    let program_id = setup_program(&client, &payer).context("Failed to setup program")?;
+
+    // Setup greeting account
+    let greeting_account = setup_greeting_account(&client, &payer, &program_id)
+        .context("Failed to setup greeting account")?;
+
+    // Interact with the program
+    interact_with_program(&client, &payer, &program_id, &greeting_account)
+        .context("Failed to interact with program")?;
+
+    Ok(())
+}
+
+/// Initialize the Solana RPC client and verify connection
+fn initialize_client() -> Result<RpcClient> {
+    println!("Using RPC URL: {}", RPC_URL);
+
     let client = RpcClient::new_with_timeout_and_commitment(
-        rpc_url,
-        Duration::from_secs(30),
+        RPC_URL.to_string(),
+        Duration::from_secs(RPC_TIMEOUT_SECS),
         CommitmentConfig::confirmed(),
     );
-    
-    // Check if the validator is running
-    match client.get_version() {
-        Ok(version) => println!("Connected to Solana validator version: {}", version.solana_core),
-        Err(err) => {
-            return Err(anyhow!(
+
+    // Verify connection to validator
+    client.get_version()
+        .map(|version| {
+            println!("Connected to Solana validator version: {}", version.solana_core);
+            client
+        })
+        .map_err(|err| {
+            anyhow!(
                 "Failed to connect to Solana validator: {}.\nPlease ensure a local validator is running with 'solana-test-validator'",
                 err
-            ));
-        }
-    }
+            )
+        })
+}
 
-    // Load or create a payer keypair
-    let payer = match read_keypair_file("payer-keypair.json") {
+/// Setup the payer account, creating a new one and funding it if necessary
+fn setup_payer(client: &RpcClient) -> Result<Keypair> {
+    match read_keypair_file(PAYER_KEYPAIR_PATH) {
         Ok(keypair) => {
             println!("Using existing payer keypair");
-            keypair
-        },
+            Ok(keypair)
+        }
         Err(_) => {
             let keypair = Keypair::new();
-            write_keypair_file(&keypair, "payer-keypair.json")?;
+            write_keypair_file(&keypair, PAYER_KEYPAIR_PATH)
+                .context("Failed to write new payer keypair to file")?;
+
             println!("Created new payer keypair: {}", keypair.pubkey());
 
-            // Airdrop SOL to the payer
-            let airdrop_amount = 2_000_000_000; // 2 SOL
-            let sig = client.request_airdrop(&keypair.pubkey(), airdrop_amount)?;
-            println!("Airdrop requested, waiting for confirmation...");
-            
-            // Wait for confirmation with retries
-            let mut retries = 10;
-            while retries > 0 {
-                match client.confirm_transaction(&sig) {
-                    Ok(confirmed) => {
-                        if confirmed {
-                            println!("Airdrop confirmed!");
-                            break;
-                        }
-                    },
-                    Err(_) => {}
-                }
-                retries -= 1;
-                std::thread::sleep(Duration::from_secs(1));
-                if retries == 0 {
-                    return Err(anyhow!("Failed to confirm airdrop transaction"));
-                }
-            }
-            
-            // Request another airdrop for more funds
-            let sig = client.request_airdrop(&keypair.pubkey(), airdrop_amount * 5)?;
-            println!("Additional airdrop requested, waiting for confirmation...");
-            
-            // Wait for confirmation with retries
-            let mut retries = 10;
-            while retries > 0 {
-                match client.confirm_transaction(&sig) {
-                    Ok(confirmed) => {
-                        if confirmed {
-                            println!("Additional airdrop confirmed!");
-                            break;
-                        }
-                    },
-                    Err(_) => {}
-                }
-                retries -= 1;
-                std::thread::sleep(Duration::from_secs(1));
-                if retries == 0 {
-                    return Err(anyhow!("Failed to confirm additional airdrop transaction"));
-                }
-            }
-            
+            // Fund the account with airdrops
+            request_and_confirm_airdrop(client, &keypair, AIRDROP_AMOUNT)
+                .context("Failed to process initial airdrop")?;
+
+            request_and_confirm_airdrop(
+                client,
+                &keypair,
+                AIRDROP_AMOUNT * ADDITIONAL_AIRDROP_MULTIPLIER,
+            )
+            .context("Failed to process additional airdrop")?;
+
             println!(
                 "Airdropped {} SOL to payer",
-                (airdrop_amount * 6) as f64 / 1_000_000_000.0
+                (AIRDROP_AMOUNT * (1 + ADDITIONAL_AIRDROP_MULTIPLIER)) as f64 / 1_000_000_000.0
             );
 
-            keypair
+            Ok(keypair)
         }
-    };
-    println!("Using payer: {}", payer.pubkey());
+    }
+}
 
-    // Read the program binary
-    let program_path = "../target/deploy/verifier.so";
-    if !Path::new(program_path).exists() {
-        return Err(anyhow!("Program binary not found. Please build the program first with 'cargo build-sbf' in the verifier directory."));
+/// Request an airdrop and confirm the transaction
+fn request_and_confirm_airdrop(client: &RpcClient, keypair: &Keypair, amount: u64) -> Result<()> {
+    let message = if amount == AIRDROP_AMOUNT {
+        "Airdrop"
+    } else {
+        "Additional airdrop"
+    };
+    println!("{} requested, waiting for confirmation...", message);
+
+    let sig = client
+        .request_airdrop(&keypair.pubkey(), amount)
+        .context(format!(
+            "Failed to request {} of {} SOL",
+            message,
+            amount as f64 / 1_000_000_000.0
+        ))?;
+
+    confirm_transaction_with_retries(client, &sig, TRANSACTION_RETRY_COUNT)
+        .context(format!("Failed to confirm {} transaction", message))?;
+
+    println!("{} confirmed!", message);
+    Ok(())
+}
+
+/// Confirm a transaction with retries
+fn confirm_transaction_with_retries(
+    client: &RpcClient,
+    signature: &solana_sdk::signature::Signature,
+    retries: usize,
+) -> Result<()> {
+    for attempt in 1..=retries {
+        match client.confirm_transaction(signature) {
+            Ok(true) => return Ok(()),
+            Ok(false) if attempt < retries => {
+                sleep(RETRY_SLEEP_DURATION);
+            }
+            Ok(false) => {
+                return Err(anyhow!(
+                    "Transaction not confirmed after {} attempts",
+                    retries
+                ));
+            }
+            Err(err) if attempt < retries => {
+                println!(
+                    "Confirmation attempt {}/{} failed: {}",
+                    attempt, retries, err
+                );
+                sleep(RETRY_SLEEP_DURATION);
+            }
+            Err(err) => {
+                return Err(anyhow!("Failed to confirm transaction: {}", err));
+            }
+        }
     }
 
-    let program_data = fs::read(program_path)?;
+    Err(anyhow!(
+        "Transaction confirmation failed after {} attempts",
+        retries
+    ))
+}
+
+/// Setup the program - either use existing deployment or deploy a new one
+fn setup_program(client: &RpcClient, payer: &Keypair) -> Result<solana_sdk::pubkey::Pubkey> {
+    // Read the program binary
+    if !Path::new(PROGRAM_PATH).exists() {
+        return Err(anyhow!(
+            "Program binary not found at {}. Please build the program first with 'cargo build-sbf' in the verifier directory.",
+            PROGRAM_PATH
+        ));
+    }
+
+    let program_data = fs::read(PROGRAM_PATH)
+        .context(format!("Failed to read program binary at {}", PROGRAM_PATH))?;
     println!("Program binary size: {} bytes", program_data.len());
 
     // Deploy the program or use existing deployment
-    let program_id = if Path::new("program-keypair.json").exists() {
-        let program_keypair = read_keypair_file("program-keypair.json")?;
+    if Path::new(PROGRAM_KEYPAIR_PATH).exists() {
+        let program_keypair = read_keypair_file(PROGRAM_KEYPAIR_PATH).context(format!(
+            "Failed to read program keypair from {}",
+            PROGRAM_KEYPAIR_PATH
+        ))?;
         let program_id = program_keypair.pubkey();
-        
+
         // Check if the program is already deployed
         match client.get_account(&program_id) {
             Ok(_) => {
                 println!("Program already deployed at ID: {}", program_id);
-                program_id
-            },
+                Ok(program_id)
+            }
             Err(_) => {
                 println!("Deploying program with ID: {}", program_id);
-                deploy_program(&client, &payer, &program_keypair, &program_data)?;
+                deploy_program(client, payer, &program_keypair, &program_data)
+                    .context("Failed to deploy program")?;
                 println!("Program deployed successfully!");
-                program_id
+                Ok(program_id)
             }
         }
     } else {
         // Create a new program deployment
         let program_keypair = Keypair::new();
-        println!("Deploying program with ID: {}", program_keypair.pubkey());
+        let program_id = program_keypair.pubkey();
+        println!("Deploying new program with ID: {}", program_id);
 
-        deploy_program(&client, &payer, &program_keypair, &program_data)?;
+        deploy_program(client, payer, &program_keypair, &program_data)
+            .context("Failed to deploy program")?;
+
+        write_keypair_file(&program_keypair, PROGRAM_KEYPAIR_PATH).context(format!(
+            "Failed to write program keypair to {}",
+            PROGRAM_KEYPAIR_PATH
+        ))?;
+
         println!("Program deployed successfully!");
+        Ok(program_id)
+    }
+}
 
-        write_keypair_file(&program_keypair, "program-keypair.json")?;
-        program_keypair.pubkey()
-    };
-
-    println!("Using program ID: {}", program_id);
-
-    // Create or load a greeting account
-    let greeting_account = if Path::new("greeting-keypair.json").exists() {
-        let greeting_keypair = read_keypair_file("greeting-keypair.json")?;
-        println!("Using existing greeting account: {}", greeting_keypair.pubkey());
-        greeting_keypair
+/// Setup the greeting account - either use existing or create a new one
+fn setup_greeting_account(
+    client: &RpcClient,
+    payer: &Keypair,
+    program_id: &solana_sdk::pubkey::Pubkey,
+) -> Result<Keypair> {
+    if Path::new(GREETING_KEYPAIR_PATH).exists() {
+        let greeting_keypair = read_keypair_file(GREETING_KEYPAIR_PATH).context(format!(
+            "Failed to read greeting keypair from {}",
+            GREETING_KEYPAIR_PATH
+        ))?;
+        println!(
+            "Using existing greeting account: {}",
+            greeting_keypair.pubkey()
+        );
+        Ok(greeting_keypair)
     } else {
         let greeting_keypair = Keypair::new();
         println!("Creating greeting account: {}", greeting_keypair.pubkey());
 
         // Calculate the space needed for the greeting account
         let space = std::mem::size_of::<GreetingAccount>();
-        let rent = client.get_minimum_balance_for_rent_exemption(space)?;
+        let rent = client
+            .get_minimum_balance_for_rent_exemption(space)
+            .context("Failed to calculate rent for greeting account")?;
 
         // Create a transaction to create the greeting account
         let create_account_ix = system_instruction::create_account(
@@ -163,82 +258,76 @@ fn main() -> Result<()> {
             &greeting_keypair.pubkey(),
             rent,
             space as u64,
-            &program_id,
+            program_id,
         );
+
+        let blockhash = client
+            .get_latest_blockhash()
+            .context("Failed to get latest blockhash")?;
 
         let create_tx = Transaction::new_signed_with_payer(
             &[create_account_ix],
             Some(&payer.pubkey()),
-            &[&payer, &greeting_keypair],
-            client.get_latest_blockhash()?,
+            &[payer, &greeting_keypair],
+            blockhash,
         );
 
         // Send and confirm the transaction
-        let create_sig = client.send_and_confirm_transaction(&create_tx)?;
+        let create_sig = client
+            .send_and_confirm_transaction(&create_tx)
+            .context("Failed to send and confirm greeting account creation transaction")?;
         println!("Created greeting account: {}", create_sig);
-        
-        // Save the keypair for future use
-        write_keypair_file(&greeting_keypair, "greeting-keypair.json")?;
-        
-        greeting_keypair
-    };
 
-    // Now interact with the program
+        // Save the keypair for future use
+        write_keypair_file(&greeting_keypair, GREETING_KEYPAIR_PATH).context(format!(
+            "Failed to write greeting keypair to {}",
+            GREETING_KEYPAIR_PATH
+        ))?;
+
+        Ok(greeting_keypair)
+    }
+}
+
+/// Interact with the deployed program
+fn interact_with_program(
+    client: &RpcClient,
+    payer: &Keypair,
+    program_id: &solana_sdk::pubkey::Pubkey,
+    greeting_account: &Keypair,
+) -> Result<()> {
     // Create an instruction to call the program
     let instruction = Instruction::new_with_bytes(
-        program_id,
+        *program_id,
         &[],
         vec![AccountMeta::new(greeting_account.pubkey(), false)],
     );
+
+    // Get latest blockhash
+    let blockhash = client
+        .get_latest_blockhash()
+        .context("Failed to get latest blockhash")?;
 
     // Create a transaction with the instruction
     let transaction = Transaction::new_signed_with_payer(
         &[instruction],
         Some(&payer.pubkey()),
-        &[&payer],
-        client.get_latest_blockhash()?,
+        &[payer],
+        blockhash,
     );
 
     // Send and confirm the transaction
-    let signature = client.send_and_confirm_transaction(&transaction)?;
+    let signature = client
+        .send_and_confirm_transaction(&transaction)
+        .context("Failed to send and confirm program interaction transaction")?;
     println!("Transaction signature: {}", signature);
 
     // Read the greeting account data
-    let account_data = client.get_account_data(&greeting_account.pubkey())?;
-    let greeting_account_data = GreetingAccount::try_from_slice(&account_data)?;
+    let account_data = client
+        .get_account_data(&greeting_account.pubkey())
+        .context("Failed to get greeting account data")?;
+    let greeting_account_data = GreetingAccount::try_from_slice(&account_data)
+        .context("Failed to deserialize greeting account data")?;
     println!("Greeting counter: {}", greeting_account_data.counter);
-
-    // Ask user if they want to increment the counter again
-    println!("\nDo you want to increment the counter again? [y/N]");
-    let mut input = String::new();
-    std::io::stdin().read_line(&mut input)?;
-    
-    if input.trim().to_lowercase() == "y" {
-        // Call the program again to increment the counter
-        let instruction = Instruction::new_with_bytes(
-            program_id,
-            &[],
-            vec![AccountMeta::new(greeting_account.pubkey(), false)],
-        );
-
-        let transaction = Transaction::new_signed_with_payer(
-            &[instruction],
-            Some(&payer.pubkey()),
-            &[&payer],
-            client.get_latest_blockhash()?,
-        );
-
-        let signature = client.send_and_confirm_transaction(&transaction)?;
-        println!("Second transaction signature: {}", signature);
-
-        // Read the greeting account data again
-        let account_data = client.get_account_data(&greeting_account.pubkey())?;
-        let greeting_account_data = GreetingAccount::try_from_slice(&account_data)?;
-        println!(
-            "Greeting counter after second call: {}",
-            greeting_account_data.counter
-        );
-    }
 
     Ok(())
 }
@@ -256,19 +345,17 @@ fn deploy_program(
     let program_len = program_data.len();
     println!("Program size: {} bytes", program_len);
 
-    // Calculate rent for the program
-    let program_rent = client.get_minimum_balance_for_rent_exemption(program_len)?;
-    println!("Program rent: {} lamports", program_rent);
-
     // Create a buffer account
     let buffer_keypair = Keypair::new();
     println!("Creating buffer account: {}", buffer_keypair.pubkey());
 
     // Calculate rent for the buffer
     let buffer_data_len = program_len;
-    let buffer_balance = client.get_minimum_balance_for_rent_exemption(
-        buffer_data_len + UpgradeableLoaderState::size_of_buffer_metadata(),
-    )?;
+    let buffer_balance = client
+        .get_minimum_balance_for_rent_exemption(
+            buffer_data_len + UpgradeableLoaderState::size_of_buffer_metadata(),
+        )
+        .context("Failed to calculate buffer rent")?;
 
     // Create buffer account
     let create_buffer_ix = bpf_loader_upgradeable::create_buffer(
@@ -277,26 +364,82 @@ fn deploy_program(
         &payer.pubkey(),
         buffer_balance,
         buffer_data_len,
-    )?;
+    )
+    .context("Failed to create buffer instruction")?;
+
+    // Get latest blockhash
+    let blockhash = client
+        .get_latest_blockhash()
+        .context("Failed to get latest blockhash for buffer creation")?;
 
     // Create and send transaction
     let create_buffer_tx = Transaction::new_signed_with_payer(
         &create_buffer_ix,
         Some(&payer.pubkey()),
         &[payer, &buffer_keypair],
-        client.get_latest_blockhash()?,
+        blockhash,
     );
 
-    let signature = client.send_and_confirm_transaction(&create_buffer_tx)?;
+    let signature = client
+        .send_and_confirm_transaction(&create_buffer_tx)
+        .context("Failed to create buffer account")?;
     println!("Buffer account created: {}", signature);
 
-    // Write program data to the buffer account
-    // We need to split the program into chunks to avoid transaction size limits
-    const CHUNK_SIZE: usize = 900; // Slightly less than 1KB to account for transaction overhead
+    // Write program data to the buffer account in chunks
+    write_program_to_buffer(client, payer, &buffer_keypair, program_data)
+        .context("Failed to write program data to buffer")?;
+
+    // Calculate rent for the program data
+    let programdata_len = program_len;
+    let programdata_balance = client
+        .get_minimum_balance_for_rent_exemption(
+            programdata_len + UpgradeableLoaderState::size_of_programdata_metadata(),
+        )
+        .context("Failed to calculate program data rent")?;
+
+    // Create deploy instruction
+    let deploy_ix = bpf_loader_upgradeable::deploy_with_max_program_len(
+        &payer.pubkey(),
+        &program_keypair.pubkey(),
+        &buffer_keypair.pubkey(),
+        &payer.pubkey(),
+        programdata_balance,
+        programdata_len,
+    )
+    .context("Failed to create deploy instruction")?;
+
+    // Get latest blockhash
+    let blockhash = client
+        .get_latest_blockhash()
+        .context("Failed to get latest blockhash for deployment")?;
+
+    // Create and send transaction
+    let deploy_tx = Transaction::new_signed_with_payer(
+        &deploy_ix,
+        Some(&payer.pubkey()),
+        &[payer, program_keypair],
+        blockhash,
+    );
+
+    let signature = client
+        .send_and_confirm_transaction(&deploy_tx)
+        .context("Failed to deploy program")?;
+    println!("Program deployed: {}", signature);
+
+    Ok(())
+}
+
+/// Write program data to buffer in chunks
+fn write_program_to_buffer(
+    client: &RpcClient,
+    payer: &Keypair,
+    buffer_keypair: &Keypair,
+    program_data: &[u8],
+) -> Result<()> {
     let mut offset = 0;
 
     while offset < program_data.len() {
-        let chunk_end = std::cmp::min(offset + CHUNK_SIZE, program_data.len());
+        let chunk_end = std::cmp::min(offset + BUFFER_CHUNK_SIZE, program_data.len());
         let chunk = &program_data[offset..chunk_end];
 
         let write_ix = bpf_loader_upgradeable::write(
@@ -306,61 +449,50 @@ fn deploy_program(
             chunk.to_vec(),
         );
 
+        // Get latest blockhash for each chunk to avoid expired blockhash issues
+        let blockhash = client.get_latest_blockhash().context(format!(
+            "Failed to get blockhash for chunk at offset {}",
+            offset
+        ))?;
+
         let write_tx = Transaction::new_signed_with_payer(
             &[write_ix],
             Some(&payer.pubkey()),
             &[payer],
-            client.get_latest_blockhash()?,
+            blockhash,
         );
 
-        let signature = client.send_and_confirm_transaction(&write_tx)?;
-        println!("Wrote chunk at offset {}: {}", offset, signature);
+        let signature = client
+            .send_and_confirm_transaction(&write_tx)
+            .context(format!("Failed to write chunk at offset {}", offset))?;
+        println!(
+            "Wrote chunk at offset {}/{}: tx signature: {}",
+            offset,
+            program_data.len(),
+            signature
+        );
 
         offset = chunk_end;
     }
 
-    // Create program account
-    let program_account_keypair = program_keypair;
-    println!(
-        "Creating program account: {}",
-        program_account_keypair.pubkey()
-    );
-
-    // Calculate rent for the program
-    let programdata_len = program_len;
-    let programdata_balance = client.get_minimum_balance_for_rent_exemption(
-        programdata_len + UpgradeableLoaderState::size_of_programdata_metadata(),
-    )?;
-
-    // Create deploy instruction
-    let deploy_ix = bpf_loader_upgradeable::deploy_with_max_program_len(
-        &payer.pubkey(),
-        &program_account_keypair.pubkey(),
-        &buffer_keypair.pubkey(),
-        &payer.pubkey(),
-        programdata_balance,
-        programdata_len,
-    )?;
-
-    // Create and send transaction
-    let deploy_tx = Transaction::new_signed_with_payer(
-        &deploy_ix,
-        Some(&payer.pubkey()),
-        &[payer, program_account_keypair],
-        client.get_latest_blockhash()?,
-    );
-
-    let signature = client.send_and_confirm_transaction(&deploy_tx)?;
-    println!("Program deployed: {}", signature);
-
     Ok(())
 }
 
+/// Read a keypair from file with improved error handling
 fn read_keypair_file(path: &str) -> Result<Keypair> {
-    solana_read_keypair_file(path).map_err(|e| anyhow!("Failed to read keypair file: {}", e))
+    let file_content = fs::read_to_string(path)
+        .map_err(|e| anyhow!("Failed to read keypair file '{}': {}", path, e))?;
+
+    let bytes: Vec<u8> = serde_json::from_str(&file_content)
+        .map_err(|e| anyhow!("Failed to parse keypair JSON from '{}': {}", path, e))?;
+
+    Keypair::from_bytes(&bytes)
+        .map_err(|e| anyhow!("Failed to create keypair from bytes in '{}': {}", path, e))
 }
 
+/// Write a keypair to file with improved error handling
 fn write_keypair_file(keypair: &Keypair, path: &str) -> Result<()> {
-    fs::write(path, keypair.to_bytes())?;
-    Ok(())
+    let json = serde_json::to_string(&keypair.to_bytes().to_vec())
+        .map_err(|e| anyhow!("Failed to serialize keypair: {}", e))?;
+    fs::write(path, json).map_err(|e| anyhow!("Failed to write keypair to file '{}': {}", path, e))
 }
