@@ -49,14 +49,22 @@ pub fn initialize_client(config: &Config) -> Result<RpcClient> {
 
 /// Setup the payer account, creating a new one and funding it if necessary
 pub fn setup_payer(client: &RpcClient, config: &Config) -> Result<Keypair> {
-    match read_keypair_file(&config.payer_keypair_path) {
+    let payer_keypair_path = config.keypairs_dir.join("payer-keypair.json");
+
+    match read_keypair_file(&payer_keypair_path) {
         Ok(keypair) => {
             println!("Using existing payer keypair");
             Ok(keypair)
         }
         Err(_) => {
             let keypair = Keypair::new();
-            write_keypair_file(&keypair, &config.payer_keypair_path)?;
+
+            // Ensure keypairs directory exists
+            if !config.keypairs_dir.exists() {
+                fs::create_dir_all(&config.keypairs_dir).map_err(ClientError::IoError)?;
+            }
+
+            write_keypair_file(&keypair, &payer_keypair_path)?;
 
             println!("Created new payer keypair: {}", keypair.pubkey());
 
@@ -158,22 +166,25 @@ pub fn setup_program(
     client: &RpcClient,
     payer: &Keypair,
     config: &Config,
+    program_path: &Path,
 ) -> Result<solana_sdk::pubkey::Pubkey> {
     // Read the program binary
-    if !config.program_path.exists() {
+    if !program_path.exists() {
         return Err(ClientError::ProgramNotFound(
             format!("Program binary not found at {}. Please build the program first with 'cargo build-sbf' in the verifier directory.", 
-                config.program_path.display()
+                program_path.display()
             )
         ));
     }
 
-    let program_data = fs::read(&config.program_path).map_err(ClientError::IoError)?;
+    let program_data = fs::read(program_path).map_err(ClientError::IoError)?;
     println!("Program binary size: {} bytes", program_data.len());
 
+    let program_keypair_path = config.keypairs_dir.join("program-keypair.json");
+
     // Deploy the program or use existing deployment
-    if config.program_keypair_path.exists() {
-        let program_keypair = read_keypair_file(&config.program_keypair_path)?;
+    if program_keypair_path.exists() {
+        let program_keypair = read_keypair_file(&program_keypair_path)?;
         let program_id = program_keypair.pubkey();
 
         // Check if the program is already deployed
@@ -197,41 +208,48 @@ pub fn setup_program(
 
         deploy_program(client, payer, &program_keypair, &program_data, config)?;
 
-        write_keypair_file(&program_keypair, &config.program_keypair_path)?;
+        // Ensure keypairs directory exists
+        if !config.keypairs_dir.exists() {
+            fs::create_dir_all(&config.keypairs_dir).map_err(ClientError::IoError)?;
+        }
+
+        write_keypair_file(&program_keypair, &program_keypair_path)?;
 
         println!("Program deployed successfully!");
         Ok(program_id)
     }
 }
 
-/// Setup the greeting account - either use existing or create a new one
-pub fn setup_greeting_account(
+/// Setup a program account - either use existing or create a new one
+pub fn setup_account(
     client: &RpcClient,
     payer: &Keypair,
     program_id: &solana_sdk::pubkey::Pubkey,
     config: &Config,
+    space: usize,
+    account_name: &str,
 ) -> Result<Keypair> {
-    if config.greeting_keypair_path.exists() {
-        let greeting_keypair = read_keypair_file(&config.greeting_keypair_path)?;
-        println!(
-            "Using existing greeting account: {}",
-            greeting_keypair.pubkey()
-        );
-        Ok(greeting_keypair)
-    } else {
-        let greeting_keypair = Keypair::new();
-        println!("Creating greeting account: {}", greeting_keypair.pubkey());
+    let account_keypair_path = config
+        .keypairs_dir
+        .join(format!("{}-keypair.json", account_name));
 
-        // Calculate the space needed for the greeting account
-        let space = std::mem::size_of::<GreetingAccount>();
+    if account_keypair_path.exists() {
+        let account_keypair = read_keypair_file(&account_keypair_path)?;
+        println!("Using existing account: {}", account_keypair.pubkey());
+        Ok(account_keypair)
+    } else {
+        let account_keypair = Keypair::new();
+        println!("Creating account: {}", account_keypair.pubkey());
+
+        // Calculate the space needed for the account
         let rent = client
             .get_minimum_balance_for_rent_exemption(space)
             .map_err(ClientError::SolanaClientError)?;
 
-        // Create a transaction to create the greeting account
+        // Create a transaction to create the account
         let create_account_ix = system_instruction::create_account(
             &payer.pubkey(),
-            &greeting_keypair.pubkey(),
+            &account_keypair.pubkey(),
             rent,
             space as u64,
             program_id,
@@ -244,7 +262,7 @@ pub fn setup_greeting_account(
         let create_tx = Transaction::new_signed_with_payer(
             &[create_account_ix],
             Some(&payer.pubkey()),
-            &[payer, &greeting_keypair],
+            &[payer, &account_keypair],
             blockhash,
         );
 
@@ -253,31 +271,49 @@ pub fn setup_greeting_account(
             .send_and_confirm_transaction(&create_tx)
             .map_err(|e| {
                 ClientError::TransactionError(format!(
-                    "Failed to send and confirm greeting account creation transaction: {}",
+                    "Failed to send and confirm account creation transaction: {}",
                     e
                 ))
             })?;
-        println!("Created greeting account: {}", create_sig);
+        println!("Created account: {}", create_sig);
+
+        // Ensure keypairs directory exists
+        if !config.keypairs_dir.exists() {
+            fs::create_dir_all(&config.keypairs_dir).map_err(ClientError::IoError)?;
+        }
 
         // Save the keypair for future use
-        write_keypair_file(&greeting_keypair, &config.greeting_keypair_path)?;
+        write_keypair_file(&account_keypair, &account_keypair_path)?;
 
-        Ok(greeting_keypair)
+        Ok(account_keypair)
     }
 }
 
-/// Interact with the deployed program
-pub fn interact_with_program(
+/// Setup the greeting account - either use existing or create a new one (legacy function)
+pub fn setup_greeting_account(
     client: &RpcClient,
     payer: &Keypair,
     program_id: &solana_sdk::pubkey::Pubkey,
-    greeting_account: &Keypair,
+    config: &Config,
+) -> Result<Keypair> {
+    // Calculate the space needed for the greeting account
+    let space = std::mem::size_of::<GreetingAccount>();
+    setup_account(client, payer, program_id, config, space, "greeting-account")
+}
+
+/// Interact with a program account
+pub fn interact_with_account(
+    client: &RpcClient,
+    payer: &Keypair,
+    program_id: &solana_sdk::pubkey::Pubkey,
+    account: &Keypair,
+    instruction_data: &[u8],
 ) -> Result<()> {
     // Create an instruction to call the program
     let instruction = Instruction::new_with_bytes(
         *program_id,
-        &[],
-        vec![AccountMeta::new(greeting_account.pubkey(), false)],
+        instruction_data,
+        vec![AccountMeta::new(account.pubkey(), false)],
     );
 
     // Get latest blockhash
@@ -303,6 +339,19 @@ pub fn interact_with_program(
             ))
         })?;
     println!("Transaction signature: {}", signature);
+
+    Ok(())
+}
+
+/// Interact with the greeting program (legacy function)
+pub fn interact_with_program(
+    client: &RpcClient,
+    payer: &Keypair,
+    program_id: &solana_sdk::pubkey::Pubkey,
+    greeting_account: &Keypair,
+) -> Result<()> {
+    // Call the generic function with empty instruction data for greeting program
+    interact_with_account(client, payer, program_id, greeting_account, &[])?;
 
     // Read the greeting account data
     let account_data = client
@@ -486,68 +535,28 @@ pub fn write_keypair_file<P: AsRef<Path>>(keypair: &Keypair, path: P) -> Result<
     fs::write(&path, json).map_err(ClientError::IoError)
 }
 
-/// Setup the scheduler account - either use existing or create a new one
+/// Setup the scheduler account - either use existing or create a new one (legacy function)
 pub fn setup_scheduler_account(
     client: &RpcClient,
     payer: &Keypair,
     program_id: &solana_sdk::pubkey::Pubkey,
     config: &Config,
 ) -> Result<Keypair> {
-    // Ensure data directory exists
-    if !config.data_dir.exists() {
-        fs::create_dir_all(&config.data_dir).map_err(ClientError::IoError)?;
+    // Ensure keypairs directory exists
+    if !config.keypairs_dir.exists() {
+        fs::create_dir_all(&config.keypairs_dir).map_err(ClientError::IoError)?;
     }
 
-    let scheduler_keypair_path = config.data_dir.join("scheduler-keypair.json");
-
-    if scheduler_keypair_path.exists() {
-        let scheduler_keypair = read_keypair_file(&scheduler_keypair_path)?;
-        println!(
-            "Using existing scheduler account: {}",
-            scheduler_keypair.pubkey()
-        );
-        Ok(scheduler_keypair)
-    } else {
-        let scheduler_keypair = Keypair::new();
-        println!("Creating scheduler account: {}", scheduler_keypair.pubkey());
-
-        // Calculate the space needed for the scheduler account (adjust as needed)
-        let space = 10000; // Large enough to store the serialized scheduler
-        let rent = client
-            .get_minimum_balance_for_rent_exemption(space)
-            .map_err(ClientError::SolanaClientError)?;
-
-        // Create a transaction to create the scheduler account
-        let create_account_ix = system_instruction::create_account(
-            &payer.pubkey(),
-            &scheduler_keypair.pubkey(),
-            rent,
-            space as u64,
-            program_id,
-        );
-
-        let blockhash = client
-            .get_latest_blockhash()
-            .map_err(ClientError::SolanaClientError)?;
-
-        let create_tx = Transaction::new_signed_with_payer(
-            &[create_account_ix],
-            Some(&payer.pubkey()),
-            &[payer, &scheduler_keypair],
-            blockhash,
-        );
-
-        client
-            .send_and_confirm_transaction(&create_tx)
-            .map_err(|e| {
-                ClientError::TransactionError(format!("Failed to create scheduler account: {}", e))
-            })?;
-
-        write_keypair_file(&scheduler_keypair, &scheduler_keypair_path)?;
-
-        println!("Scheduler account created successfully!");
-        Ok(scheduler_keypair)
-    }
+    // Calculate the space needed for the scheduler account (adjust as needed)
+    let space = 10000; // Large enough to store the serialized scheduler
+    setup_account(
+        client,
+        payer,
+        program_id,
+        config,
+        space,
+        "scheduler-account",
+    )
 }
 
 /// Initialize the scheduler account

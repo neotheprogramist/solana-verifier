@@ -14,25 +14,9 @@ pub struct Config {
     #[clap(long, default_value = "30")]
     pub rpc_timeout_secs: u64,
 
-    /// Path to the program binary
-    #[clap(long, default_value = "target/deploy/greeting.so")]
-    pub program_path: PathBuf,
-
-    /// Path to the payer keypair file
-    #[clap(long, default_value = "payer-keypair.json")]
-    pub payer_keypair_path: PathBuf,
-
-    /// Path to the program keypair file
-    #[clap(long, default_value = "program-keypair.json")]
-    pub program_keypair_path: PathBuf,
-
-    /// Path to the greeting account keypair file
-    #[clap(long, default_value = "greeting-keypair.json")]
-    pub greeting_keypair_path: PathBuf,
-
-    /// Directory for data files
-    #[clap(long, default_value = "data")]
-    pub data_dir: PathBuf,
+    /// Directory for keypair files
+    #[clap(long, default_value = "keypairs")]
+    pub keypairs_dir: PathBuf,
 
     /// Amount of SOL to airdrop initially
     #[clap(long, default_value = "2000000000")]

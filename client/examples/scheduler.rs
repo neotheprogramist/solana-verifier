@@ -1,8 +1,8 @@
-use arithmetic::add::Add;
 use client::{
-    execute_task, initialize_client, initialize_scheduler, push_task, setup_payer, setup_program,
-    setup_scheduler_account, Config,
+    initialize_client, initialize_scheduler, setup_payer,
+    setup_program, setup_scheduler_account, Config,
 };
+use std::path::Path;
 
 /// Main entry point for the Solana program client
 fn main() -> client::Result<()> {
@@ -15,8 +15,11 @@ fn main() -> client::Result<()> {
     // Setup the payer account
     let payer = setup_payer(&client, &config)?;
 
+    // Define program path
+    let program_path = Path::new("target/deploy/scheduler_program.so");
+
     // Deploy or use existing program
-    let program_id = setup_program(&client, &payer, &config)?;
+    let program_id = setup_program(&client, &payer, &config, program_path)?;
 
     // Setup scheduler account
     let scheduler_account = setup_scheduler_account(&client, &payer, &program_id, &config)?;
@@ -24,17 +27,7 @@ fn main() -> client::Result<()> {
     // Initialize the scheduler
     initialize_scheduler(&client, &payer, &program_id, &scheduler_account)?;
 
-    // Create an Add task
-    let add_task = Add::new(42, 58);
-
-    // Push the task onto the scheduler
-    push_task(&client, &payer, &program_id, &scheduler_account, &add_task)?;
-
-    // Execute the task
-    execute_task(&client, &payer, &program_id, &scheduler_account)?;
-
-    println!("Example completed successfully!");
-    println!("The result of 42 + 58 has been computed and stored in the scheduler's data stack.");
+    println!("Scheduler program initialization completed successfully!");
 
     Ok(())
 }
