@@ -6,6 +6,8 @@ This project demonstrates how to build, deploy, and interact with a Solana progr
 
 - `verifier/`: The Solana program written in Rust
 - `client/`: A Rust client application that deploys and interacts with the program
+- `scheduler/`: A task scheduler library for serialization and execution of tasks
+- `tasks/`: Task implementations for the scheduler
 
 
 ## Manual Setup
@@ -20,9 +22,14 @@ solana-test-validator
 cargo build-sbf -- -p verifier
 ```
 
-3. Build and run the client:
+3. Build and run the greeting example:
 ```bash
-cargo run -p client
+cargo run --example greeting
+```
+
+4. Build and run the scheduler example:
+```bash
+cargo run --example scheduler
 ```
 
 ## Client Features
@@ -34,6 +41,20 @@ The client demonstrates how to:
 - Create program accounts
 - Send transactions to interact with the program
 - Read account data from the blockchain
+- Use the scheduler to execute tasks on-chain
+
+## Scheduler Integration
+
+The verifier program now integrates with a task scheduler that can:
+- Schedule and execute arithmetic tasks
+- Store task results in a persistent account
+- Demonstrate how to use the scheduler pattern in Solana programs
+
+The scheduler example shows how to:
+- Create a scheduler account
+- Schedule an Add task with two operands
+- Execute the task on-chain
+- Get the result of the computation
 
 ## Programmatic Deployment
 

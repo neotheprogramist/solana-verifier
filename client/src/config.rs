@@ -30,6 +30,10 @@ pub struct Config {
     #[clap(long, default_value = "greeting-keypair.json")]
     pub greeting_keypair_path: PathBuf,
 
+    /// Path to the scheduler account keypair file
+    #[clap(long, default_value = "scheduler-keypair.json")]
+    pub scheduler_keypair_path: PathBuf,
+
     /// Amount of SOL to airdrop initially
     #[clap(long, default_value = "2000000000")]
     pub airdrop_amount: u64,

@@ -108,7 +108,7 @@ mod tests {
     #[test]
     fn test_fib_sequence() {
         // Test first few Fibonacci numbers
-        let expected = vec![0, 1, 1, 2, 3, 5, 8, 13, 21, 34];
+        let expected = [0, 1, 1, 2, 3, 5, 8, 13, 21, 34];
 
         for (n, expected_value) in expected.iter().enumerate() {
             let mut scheduler = Scheduler::default();

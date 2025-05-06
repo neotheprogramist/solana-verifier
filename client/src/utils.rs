@@ -483,3 +483,144 @@ pub fn write_keypair_file<P: AsRef<Path>>(keypair: &Keypair, path: P) -> Result<
         serde_json::to_string(&keypair.to_bytes().to_vec()).map_err(ClientError::SerdeError)?;
     fs::write(&path, json).map_err(ClientError::IoError)
 }
+
+/// Setup the scheduler account - either use existing or create a new one
+pub fn setup_scheduler_account(
+    client: &RpcClient,
+    payer: &Keypair,
+    program_id: &solana_sdk::pubkey::Pubkey,
+    config: &Config,
+) -> Result<Keypair> {
+    // Check if the scheduler account keypair already exists
+    match read_keypair_file(&config.scheduler_keypair_path) {
+        Ok(keypair) => {
+            println!("Using existing scheduler account: {}", keypair.pubkey());
+
+            // Check if the account exists on chain
+            match client.get_account(&keypair.pubkey()) {
+                Ok(_) => Ok(keypair),
+                Err(_) => {
+                    println!("Scheduler account not found on chain. Creating new account...");
+                    create_scheduler_account(client, payer, program_id, &keypair, config)
+                }
+            }
+        }
+        Err(_) => {
+            println!("Creating new scheduler account...");
+            let scheduler_keypair = Keypair::new();
+            create_scheduler_account(client, payer, program_id, &scheduler_keypair, config)
+        }
+    }
+}
+
+/// Create a new scheduler account
+fn create_scheduler_account(
+    client: &RpcClient,
+    payer: &Keypair,
+    program_id: &solana_sdk::pubkey::Pubkey,
+    scheduler_keypair: &Keypair,
+    config: &Config,
+) -> Result<Keypair> {
+    // Calculate the space needed for the scheduler account
+    // We'll allocate a generous amount to accommodate the scheduler data
+    let space = 10240; // 10KB should be enough for most scheduler operations
+
+    // Calculate rent exemption
+    let rent = client
+        .get_minimum_balance_for_rent_exemption(space)
+        .map_err(ClientError::SolanaClientError)?;
+
+    // Create system instruction to create account
+    let create_account_ix = system_instruction::create_account(
+        &payer.pubkey(),
+        &scheduler_keypair.pubkey(),
+        rent,
+        space as u64,
+        program_id,
+    );
+
+    // Get latest blockhash
+    let blockhash = client
+        .get_latest_blockhash()
+        .map_err(ClientError::SolanaClientError)?;
+
+    // Create transaction
+    let create_tx = Transaction::new_signed_with_payer(
+        &[create_account_ix],
+        Some(&payer.pubkey()),
+        &[payer, scheduler_keypair],
+        blockhash,
+    );
+
+    // Send and confirm transaction
+    let create_sig = client
+        .send_and_confirm_transaction(&create_tx)
+        .map_err(|e| {
+            ClientError::TransactionError(format!(
+                "Failed to send and confirm scheduler account creation transaction: {}",
+                e
+            ))
+        })?;
+    println!("Created scheduler account: {}", create_sig);
+
+    // Save the keypair for future use
+    write_keypair_file(scheduler_keypair, &config.scheduler_keypair_path)?;
+
+    // Return a new copy of the keypair
+    let keypair_copy = read_keypair_file(&config.scheduler_keypair_path)?;
+    Ok(keypair_copy)
+}
+
+/// Schedule an Add task and execute it
+pub fn schedule_add_task(
+    client: &RpcClient,
+    payer: &Keypair,
+    program_id: &solana_sdk::pubkey::Pubkey,
+    scheduler_account: &Keypair,
+    x: u128,
+    y: u128,
+) -> Result<()> {
+    println!("Scheduling Add task with operands: {} and {}", x, y);
+
+    // Create instruction data for ScheduleAdd
+    let mut instruction_data = vec![1]; // Instruction index 1 for ScheduleAdd
+
+    // Append the operands in little-endian format
+    instruction_data.extend_from_slice(&x.to_le_bytes());
+    instruction_data.extend_from_slice(&y.to_le_bytes());
+
+    // Create an instruction to call the program
+    let instruction = Instruction::new_with_bytes(
+        *program_id,
+        &instruction_data,
+        vec![AccountMeta::new(scheduler_account.pubkey(), true)], // Make account writable
+    );
+
+    // Get latest blockhash
+    let blockhash = client
+        .get_latest_blockhash()
+        .map_err(ClientError::SolanaClientError)?;
+
+    // Create a transaction with the instruction
+    let transaction = Transaction::new_signed_with_payer(
+        &[instruction],
+        Some(&payer.pubkey()),
+        &[payer, scheduler_account], // Include scheduler account as a signer
+        blockhash,
+    );
+
+    // Send and confirm the transaction
+    let signature = client
+        .send_and_confirm_transaction(&transaction)
+        .map_err(|e| {
+            ClientError::TransactionError(format!(
+                "Failed to send and confirm scheduler task transaction: {}",
+                e
+            ))
+        })?;
+    println!("Transaction signature: {}", signature);
+
+    println!("Add task scheduled and executed successfully");
+
+    Ok(())
+}

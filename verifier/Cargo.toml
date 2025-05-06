@@ -13,3 +13,7 @@ no-entrypoint = []
 borsh.workspace = true
 solana-program.workspace = true
 thiserror.workspace = true
+scheduler.workspace = true
+arithmetic.workspace = true
+serde.workspace = true
+ciborium.workspace = true
