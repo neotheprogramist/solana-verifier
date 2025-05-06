@@ -10,6 +10,7 @@ crate-type = ["cdylib", "lib"]
 no-entrypoint = []
 
 [dependencies]
+bincode = "2.0.1"
 borsh.workspace = true
 ciborium.workspace = true
 serde.workspace = true

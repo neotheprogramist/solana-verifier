@@ -49,7 +49,7 @@ pub fn process_instruction(
     msg!("Hello World Rust program entrypoint");
 
     // Unpack the instruction
-    let instruction = GreetingInstruction::unpack(instruction_data)?;
+    let instruction = GreetingInstruction::try_from_slice(instruction_data)?;
 
     // Process the instruction
     match instruction {

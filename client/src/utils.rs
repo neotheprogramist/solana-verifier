@@ -330,37 +330,46 @@ pub fn send_instruction(
     Ok(signature)
 }
 
-/// Trait for program-specific interactions
-pub trait ProgramInteraction {
-    /// Process account data after interaction
-    fn process_account_data(client: &RpcClient, account: &Keypair) -> Result<()>;
-
-    /// Get instruction data for the interaction
-    fn get_instruction_data(&self) -> Vec<u8>;
-
-    /// Get accounts for the instruction
-    fn get_accounts(&self, account: &Keypair) -> Vec<AccountMeta> {
-        vec![AccountMeta::new(account.pubkey(), false)]
-    }
-}
-
-/// Generic function to interact with any program
-pub fn interact_with_program<T: ProgramInteraction>(
+/// Function to interact with a program using a vector of instructions
+///
+/// This function allows direct interaction with a Solana program by providing a vector of
+/// instructions to execute in a single transaction. Unlike `interact_with_program`, this function
+/// doesn't require implementing the `ProgramInteraction` trait, making it more flexible for
+/// simple use cases.
+///
+/// # Parameters
+/// * `client` - The RPC client to use for the transaction
+/// * `payer` - The keypair that will pay for the transaction
+/// * `_program_id` - The program ID (kept for API consistency but not used directly)
+/// * `_account` - The account to interact with (kept for API consistency but not used directly)
+/// * `instructions` - The vector of instructions to include in the transaction
+pub fn interact_with_program_instructions(
     client: &RpcClient,
     payer: &Keypair,
-    program_id: &solana_sdk::pubkey::Pubkey,
-    account: &Keypair,
-    interaction: &T,
+    _program_id: &solana_sdk::pubkey::Pubkey, // Unused but kept for API consistency
+    _account: &Keypair,                       // Unused but kept for API consistency
+    instructions: &[Instruction],
 ) -> Result<()> {
-    // Get instruction data and accounts from the interaction implementation
-    let instruction_data = interaction.get_instruction_data();
-    let accounts = interaction.get_accounts(account);
+    // Get latest blockhash
+    let blockhash = client
+        .get_latest_blockhash()
+        .map_err(ClientError::SolanaClientError)?;
 
-    // Send the instruction
-    send_instruction(client, payer, program_id, accounts, &instruction_data)?;
+    // Create a transaction with the instructions
+    let transaction = Transaction::new_signed_with_payer(
+        instructions,
+        Some(&payer.pubkey()),
+        &[payer],
+        blockhash,
+    );
 
-    // Process account data using the interaction implementation
-    T::process_account_data(client, account)?;
+    // Send and confirm the transaction
+    let signature = client
+        .send_and_confirm_transaction(&transaction)
+        .map_err(|e| {
+            ClientError::TransactionError(format!("Failed to send and confirm transaction: {}", e))
+        })?;
+    println!("Transaction signature: {}", signature);
 
     Ok(())
 }

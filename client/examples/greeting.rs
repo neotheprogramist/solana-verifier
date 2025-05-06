@@ -1,34 +1,14 @@
 use borsh::BorshDeserialize;
 use client::{
-    initialize_client, interact_with_program, setup_account, setup_payer, setup_program,
-    ClientError, Config, ProgramInteraction, Result,
+    initialize_client, interact_with_program_instructions, setup_account, setup_payer,
+    setup_program, ClientError, Config,
 };
-use greeting::state::GreetingAccount;
-use solana_client::rpc_client::RpcClient;
-use solana_sdk::signature::{Keypair, Signer};
+use greeting::{instruction::GreetingInstruction, state::GreetingAccount};
+use solana_sdk::{
+    instruction::{AccountMeta, Instruction},
+    signer::Signer,
+};
 use std::{mem::size_of, path::Path};
-
-/// Greeting program interaction implementation
-pub struct GreetingInteraction;
-
-impl ProgramInteraction for GreetingInteraction {
-    fn process_account_data(client: &RpcClient, account: &Keypair) -> Result<()> {
-        // Read the greeting account data
-        let account_data = client
-            .get_account_data(&account.pubkey())
-            .map_err(ClientError::SolanaClientError)?;
-        let greeting_account_data = GreetingAccount::try_from_slice(&account_data)
-            .map_err(|e| ClientError::BorshError(e.to_string()))?;
-        println!("Greeting counter: {}", greeting_account_data.counter);
-
-        Ok(())
-    }
-
-    fn get_instruction_data(&self) -> Vec<u8> {
-        // Empty instruction data for greeting program
-        vec![]
-    }
-}
 
 /// Main entry point for the Solana program client
 fn main() -> client::Result<()> {
@@ -59,16 +39,28 @@ fn main() -> client::Result<()> {
         "greeting-account",
     )?;
 
-    // Interact with the program using the generic function with GreetingInteraction
-    interact_with_program(
+    let instructions = vec![Instruction::new_with_borsh(
+        program_id,
+        &GreetingInstruction::IncrementCounter,
+        vec![AccountMeta::new(greeting_account.pubkey(), false)],
+    )];
+
+    // Interact with the program using the instructions directly
+    interact_with_program_instructions(
         &client,
         &payer,
         &program_id,
         &greeting_account,
-        &GreetingInteraction,
+        &instructions,
     )?;
 
     println!("Greeting program interaction completed successfully!");
+    let account_data = client
+        .get_account_data(&greeting_account.pubkey())
+        .map_err(ClientError::SolanaClientError)?;
+    let greeting_account_data = GreetingAccount::try_from_slice(&account_data)
+        .map_err(|e| ClientError::BorshError(e.to_string()))?;
+    println!("Greeting counter: {}", greeting_account_data.counter);
 
     Ok(())
 }
