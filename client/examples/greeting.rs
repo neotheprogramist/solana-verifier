@@ -14,14 +14,14 @@ fn main() -> client::Result<()> {
     // Setup the payer account
     let payer = setup_payer(&client, &config)?;
 
-    // Deploy or use existing program
+    // Deploy the program
     let program_id = setup_program(&client, &payer, &config)?;
 
     // Setup greeting account
     let greeting_account = setup_greeting_account(&client, &payer, &program_id, &config)?;
 
     // Interact with the program
-    interact_with_program(&client, &payer, &program_id, &greeting_account)?;
+    interact_with_program(&client, &payer, &program_id, &greeting_account, &config)?;
 
     Ok(())
 }

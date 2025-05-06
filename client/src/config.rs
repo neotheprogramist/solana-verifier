@@ -15,7 +15,7 @@ pub struct Config {
     pub rpc_timeout_secs: u64,
 
     /// Path to the program binary
-    #[clap(long, default_value = "target/deploy/greeting.so")]
+    #[clap(long, default_value = "../target/deploy/greeting.so")]
     pub program_path: PathBuf,
 
     /// Path to the payer keypair file
