@@ -1,6 +1,6 @@
 use client::{
-    initialize_client, interact_with_program, setup_account, setup_payer, setup_program,
-    ClientError, Config, ProgramInteraction, Result,
+    initialize_client, interact_with_program_instructions, setup_account, setup_payer,
+    setup_program, ClientError, Config, Result,
 };
 use solana_client::rpc_client::RpcClient;
 use solana_program::instruction::{AccountMeta, Instruction};
@@ -9,22 +9,6 @@ use solana_sdk::{
     transaction::Transaction,
 };
 use std::path::Path;
-
-/// Scheduler program interaction implementation
-pub struct SchedulerInteraction;
-
-impl ProgramInteraction for SchedulerInteraction {
-    fn process_account_data(_client: &RpcClient, _account: &Keypair) -> Result<()> {
-        // For scheduler, we don't need to process account data after basic interaction
-        println!("Scheduler account interaction complete");
-        Ok(())
-    }
-
-    fn get_instruction_data(&self) -> Vec<u8> {
-        // Empty instruction data for basic scheduler interaction
-        vec![]
-    }
-}
 
 /// Initialize the scheduler account
 pub fn initialize_scheduler(
@@ -166,13 +150,21 @@ fn main() -> client::Result<()> {
     // Initialize the scheduler
     initialize_scheduler(&client, &payer, &program_id, &scheduler_account)?;
 
-    // Interact with the program using the generic function with SchedulerInteraction
-    interact_with_program(
+    // Create initialize instruction for interact_with_program_instructions
+    use scheduler::instruction::SchedulerInstruction;
+    let init_ix = Instruction::new_with_borsh(
+        program_id,
+        &SchedulerInstruction::Initialize,
+        vec![AccountMeta::new(scheduler_account.pubkey(), false)],
+    );
+
+    // Interact with the program using instructions directly
+    interact_with_program_instructions(
         &client,
         &payer,
         &program_id,
         &scheduler_account,
-        &SchedulerInteraction,
+        &[init_ix],
     )?;
 
     println!("Scheduler program initialization completed successfully!");
