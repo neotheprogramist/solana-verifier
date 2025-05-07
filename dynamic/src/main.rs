@@ -13,8 +13,36 @@ pub mod mouse;
 // Include the auto-generated code
 include!(concat!(env!("OUT_DIR"), "/executable_dispatch.rs"));
 
-// The `execute` function is now generated in the included file
-// Also `push_executable` function is generated to handle serialization
+fn main() {
+    println!("Dynamic Executable Type System Test");
+    println!("===================================");
+    
+    // Print a list of all found executable types
+    println!("Found the following executable types:");
+    println!("1. Dog (TYPE_TAG: {}) from dynamic crate", Dog::TYPE_TAG);
+    println!("2. Mouse (TYPE_TAG: {}) from dynamic crate", Mouse::TYPE_TAG);
+    println!("3. Cat (TYPE_TAG: {}) from animals crate", Cat::TYPE_TAG); 
+    println!("4. Bird (TYPE_TAG: {}) from animals crate", Bird::TYPE_TAG);
+    println!("5. Frog (TYPE_TAG: {}) from animals crate", Frog::TYPE_TAG);
+    
+    // Create a new stack for testing
+    let mut stack = BidirectionalStackAccount::default();
+    
+    // Create and push some executable types
+    push_executable(&mut stack, Dog::new("Rex"));
+    push_executable(&mut stack, Mouse::new("Jerry"));
+    push_cat(&mut stack, Cat::new("Black"));
+    push_bird(&mut stack, Bird::new("Eagle", true));
+    push_frog(&mut stack, Frog::new("Kermit", false));
+    
+    println!("\nExecuting types from stack:");
+    println!("===========================");
+    
+    // Execute each type
+    while !stack.is_empty_front() {
+        execute(&mut stack);
+    }
+}
 
 // Define the push_executable function for local types that implement our Executable trait
 pub fn push_executable<T: Executable>(stack: &mut BidirectionalStackAccount, executable: T) {
@@ -44,28 +72,4 @@ pub fn push_frog(stack: &mut BidirectionalStackAccount, frog: Frog) {
     serialized.push(Frog::TYPE_TAG);
     serialized.extend_from_slice(frog.as_bytes());
     stack.push_front(&serialized).unwrap();
-}
-
-fn main() {
-    let dog: Dog = Dog::new("Buddy");
-    let cat: Cat = Cat::new("Tabby");
-    let mouse: Mouse = Mouse::new("Jerry");
-    let bird: Bird = Bird::new("Sparrow", true);
-    let frog: Frog = Frog::new("Kermit", false);
-
-    let mut stack = BidirectionalStackAccount::default();
-
-    // Use the specialized functions for different types
-    push_cat(&mut stack, cat);
-    push_executable(&mut stack, dog);
-    push_executable(&mut stack, mouse);
-    push_bird(&mut stack, bird);
-    push_frog(&mut stack, frog);
-
-    // Execute them all using the generated function
-    execute(&mut stack);
-    execute(&mut stack);
-    execute(&mut stack);
-    execute(&mut stack);
-    execute(&mut stack);
 }

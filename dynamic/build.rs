@@ -6,9 +6,12 @@ use std::path::Path;
 
 fn main() {
     println!("cargo:rerun-if-changed=src");
-    println!("cargo:rerun-if-changed=../animals/src");
-
-    // Find all Rust files in the src directory
+    
+    // Find the workspace root directory
+    let current_dir = env::current_dir().unwrap();
+    let workspace_root = find_workspace_root(&current_dir).unwrap_or(current_dir);
+    
+    // Find all Rust files in the current crate's src directory
     let src_dir = Path::new("src");
     let out_dir = env::var_os("OUT_DIR").unwrap();
     let out_path = Path::new(&out_dir).join("executable_dispatch.rs");
@@ -18,12 +21,8 @@ fn main() {
     // Find all files implementing the Executable trait in the current crate
     visit_dir(src_dir, &mut types, "crate");
 
-    // Also check for types in the animals crate
-    if let Ok(meta) = fs::metadata("../animals/src") {
-        if meta.is_dir() {
-            visit_dir(Path::new("../animals/src"), &mut types, "animals");
-        }
-    }
+    // Discover and scan all other crates in the workspace for Executable trait implementations
+    discover_and_scan_crates(&workspace_root, &mut types);
 
     // Generate the dispatch code
     let mut dispatch_code = String::new();
@@ -89,6 +88,94 @@ fn main() {
     );
 }
 
+// Helper function to find the workspace root directory
+fn find_workspace_root(start_dir: &Path) -> Option<std::path::PathBuf> {
+    let mut current = start_dir.to_path_buf();
+    
+    loop {
+        let cargo_toml = current.join("Cargo.toml");
+        if cargo_toml.exists() {
+            // Check if this is a workspace root by looking for [workspace] section
+            if let Ok(content) = fs::read_to_string(&cargo_toml) {
+                if content.contains("[workspace]") {
+                    return Some(current);
+                }
+            }
+        }
+        
+        if !current.pop() {
+            break;
+        }
+    }
+    
+    None
+}
+
+// Function to discover and scan all crates in the workspace
+fn discover_and_scan_crates(workspace_root: &Path, types: &mut HashSet<(String, String)>) {
+    // Read the workspace Cargo.toml to find members
+    let workspace_cargo = workspace_root.join("Cargo.toml");
+    if let Ok(content) = fs::read_to_string(workspace_cargo) {
+        // Parse the members array from [workspace] section
+        if let Some(members_line) = content.lines().find(|line| line.trim().starts_with("members")) {
+            let members_str = members_line.split('=').nth(1).unwrap_or("").trim().trim_matches(|c| c == '[' || c == ']' || c == '"' || c == '\'');
+            let members: Vec<&str> = members_str.split(',').map(|s| s.trim().trim_matches(|c| c == '"' || c == '\'')).collect();
+            
+            for member in members {
+                // Handle glob patterns like "programs/*"
+                if member.contains('*') {
+                    let glob_base = member.split('*').next().unwrap_or("");
+                    let base_path = workspace_root.join(glob_base);
+                    
+                    if base_path.exists() && base_path.is_dir() {
+                        if let Ok(entries) = fs::read_dir(&base_path) {
+                            for entry in entries.flatten() {
+                                let path = entry.path();
+                                if path.is_dir() && path.join("Cargo.toml").exists() {
+                                    scan_crate(workspace_root, &path, types);
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    // Direct member reference
+                    let crate_path = workspace_root.join(member);
+                    if crate_path.exists() && crate_path.is_dir() && crate_path.join("Cargo.toml").exists() {
+                        scan_crate(workspace_root, &crate_path, types);
+                    }
+                }
+            }
+        }
+    }
+}
+
+// Function to scan a specific crate for Executable types
+fn scan_crate(_workspace_root: &Path, crate_path: &Path, types: &mut HashSet<(String, String)>) {
+    // Skip scanning the current crate as it's already handled
+    if crate_path == env::current_dir().unwrap() {
+        return;
+    }
+    
+    // Get the crate name from the directory name or Cargo.toml
+    let crate_name = if let Some(name) = crate_path.file_name() {
+        name.to_string_lossy().to_string()
+    } else {
+        return;
+    };
+    
+    // Check if this crate has a src directory
+    let src_dir = crate_path.join("src");
+    if src_dir.exists() && src_dir.is_dir() {
+        // Add a rerun-if-changed directive for this crate
+        let rel_path = pathdiff::diff_paths(&src_dir, &env::current_dir().unwrap())
+            .unwrap_or_else(|| src_dir.clone());
+        println!("cargo:rerun-if-changed={}", rel_path.display());
+        
+        // Visit the src directory to find Executable implementations
+        visit_dir(&src_dir, types, &crate_name);
+    }
+}
+
 // Helper function to recursively visit directories and find Rust files
 fn visit_dir(dir: &Path, types: &mut HashSet<(String, String)>, crate_name: &str) {
     if dir.is_dir() {
@@ -127,6 +214,7 @@ fn find_executable_types(
         || content.contains("impl traits::Executable for")
         || content.contains("impl crate::traits::Executable for")
         || content.contains("impl dynamic::traits::Executable for")
+        || content.contains("impl utils::Executable for")
     {
         // Extract struct names
         for line in content.lines() {

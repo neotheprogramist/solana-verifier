@@ -7,3 +7,6 @@ edition.workspace = true
 animals.workspace = true
 utils.workspace = true
 verifier.workspace = true
+
+[build-dependencies]
+pathdiff = "0.2.1"
