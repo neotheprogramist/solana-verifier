@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use scheduler::utils::{Result, Scheduler, SchedulerTask};
+use scheduler::{Result, Scheduler, SchedulerTask};
 
 use crate::add::Add;
 
@@ -75,7 +75,7 @@ impl SchedulerTask for FibCombiner {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use scheduler::utils::Scheduler;
+    use scheduler::Scheduler;
 
     #[test]
     fn test_fib_base_cases() {

@@ -1,5 +1,5 @@
 use arithmetic::add::Add;
-use scheduler::utils::Scheduler;
+use scheduler::Scheduler;
 
 #[test]
 fn test_add_zero() {

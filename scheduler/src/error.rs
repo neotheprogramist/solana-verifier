@@ -1,4 +1,4 @@
-use crate::utils::stack::StackError;
+use crate::stack::StackError;
 use std::io;
 use thiserror::Error;
 

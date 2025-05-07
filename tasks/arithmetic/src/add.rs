@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use scheduler::utils::{Result, Scheduler, SchedulerTask};
+use scheduler::{Result, Scheduler, SchedulerTask};
 
 /// A task that adds two numbers together.
 ///
@@ -44,7 +44,7 @@ impl SchedulerTask for Add {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use scheduler::utils::Scheduler;
+    use scheduler::Scheduler;
 
     #[test]
     fn test_add_normal() {
