@@ -57,7 +57,7 @@ impl BidirectionalStack for BidirectionalStackAccount {
         Ok(())
     }
 
-    fn pop_front(&mut self) -> Result<(), Self::Error> {
+    fn pop_front(&mut self) {
         let mut data_length = 0_usize;
         for _ in 0..LENGTH_SIZE {
             self.front_index = self.front_index.saturating_sub(1);
@@ -66,11 +66,9 @@ impl BidirectionalStack for BidirectionalStackAccount {
         }
 
         self.front_index = self.front_index.saturating_sub(data_length);
-
-        Ok(())
     }
 
-    fn pop_back(&mut self) -> Result<(), Self::Error> {
+    fn pop_back(&mut self) {
         let mut data_length = 0_usize;
         for _ in 0..LENGTH_SIZE {
             let x: usize = self.buffer[self.back_index].into();
@@ -79,57 +77,50 @@ impl BidirectionalStack for BidirectionalStackAccount {
         }
 
         self.back_index = self.back_index.saturating_add(data_length);
-
-        Ok(())
     }
 
-    fn borrow_front(&self) -> Result<&[u8], Self::Error> {
+    fn borrow_front(&self) -> &[u8] {
         let mut data_length = 0_usize;
         for i in 1..=LENGTH_SIZE {
             let x: usize = self.buffer[self.front_index.saturating_sub(i)].into();
             data_length = (data_length << 8) | x;
         }
 
-        Ok(
-            &self.buffer[self.front_index.saturating_sub(data_length + LENGTH_SIZE)
-                ..self.front_index.saturating_sub(LENGTH_SIZE)],
-        )
+        &self.buffer[self.front_index.saturating_sub(data_length + LENGTH_SIZE)
+            ..self.front_index.saturating_sub(LENGTH_SIZE)]
     }
 
-    fn borrow_back(&self) -> Result<&[u8], Self::Error> {
+    fn borrow_back(&self) -> &[u8] {
         let mut data_length = 0_usize;
         for i in 0..LENGTH_SIZE {
             let x: usize = self.buffer[self.back_index.saturating_add(i)].into();
             data_length = (data_length << 8) | x;
         }
 
-        println!("data_length: {}", data_length);
-        Ok(&self.buffer[self.back_index.saturating_add(LENGTH_SIZE)
-            ..self.back_index.saturating_add(LENGTH_SIZE + data_length)])
+        &self.buffer[self.back_index.saturating_add(LENGTH_SIZE)
+            ..self.back_index.saturating_add(LENGTH_SIZE + data_length)]
     }
 
-    fn borrow_mut_front(&mut self) -> Result<&mut [u8], Self::Error> {
+    fn borrow_mut_front(&mut self) -> &mut [u8] {
         let mut data_length = 0_usize;
         for i in 1..=LENGTH_SIZE {
             let x: usize = self.buffer[self.front_index.saturating_sub(i)].into();
             data_length = (data_length << 8) | x;
         }
 
-        Ok(
-            &mut self.buffer[self.front_index.saturating_sub(data_length + LENGTH_SIZE)
-                ..self.front_index.saturating_sub(LENGTH_SIZE)],
-        )
+        &mut self.buffer[self.front_index.saturating_sub(data_length + LENGTH_SIZE)
+            ..self.front_index.saturating_sub(LENGTH_SIZE)]
     }
 
-    fn borrow_mut_back(&mut self) -> Result<&mut [u8], Self::Error> {
+    fn borrow_mut_back(&mut self) -> &mut [u8] {
         let mut data_length = 0_usize;
         for i in 0..LENGTH_SIZE {
             let x: usize = self.buffer[self.back_index.saturating_add(i)].into();
             data_length = (data_length << 8) | x;
         }
 
-        Ok(&mut self.buffer[self.back_index.saturating_add(LENGTH_SIZE)
-            ..self.back_index.saturating_add(LENGTH_SIZE + data_length)])
+        &mut self.buffer[self.back_index.saturating_add(LENGTH_SIZE)
+            ..self.back_index.saturating_add(LENGTH_SIZE + data_length)]
     }
 }
 
@@ -155,7 +146,7 @@ mod tests {
         stack.push_front(&data).unwrap();
 
         // Borrow and verify
-        let borrowed = stack.borrow_front().unwrap();
+        let borrowed = stack.borrow_front();
         assert_eq!(borrowed, &[1, 2, 3, 4]); // Data is stored in reverse
     }
 
@@ -168,7 +159,7 @@ mod tests {
         stack.push_back(&data).unwrap();
 
         // Borrow and verify
-        let borrowed = stack.borrow_back().unwrap();
+        let borrowed = stack.borrow_back();
         assert_eq!(borrowed, &[1, 2, 3, 4]); // Data is stored in reverse
     }
 }
