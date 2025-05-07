@@ -122,6 +122,14 @@ impl BidirectionalStack for BidirectionalStackAccount {
         &mut self.buffer[self.back_index.saturating_add(LENGTH_SIZE)
             ..self.back_index.saturating_add(LENGTH_SIZE + data_length)]
     }
+
+    fn is_empty_front(&self) -> bool {
+        self.front_index == 0
+    }
+
+    fn is_empty_back(&self) -> bool {
+        self.back_index == CAPACITY
+    }
 }
 
 #[cfg(test)]

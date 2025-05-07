@@ -1,3 +1,5 @@
+use std::fmt::Debug;
+
 /// Trait for safely casting between account data and Rust types
 pub trait AccountCast: Sized {
     /// Cast a slice to an immutable reference of Self
@@ -14,7 +16,7 @@ pub trait AccountCast: Sized {
 }
 
 pub trait BidirectionalStack {
-    type Error;
+    type Error: std::error::Error + Debug;
 
     fn push_front(&mut self, data: &[u8]) -> Result<(), Self::Error>;
     fn push_back(&mut self, data: &[u8]) -> Result<(), Self::Error>;
@@ -24,4 +26,6 @@ pub trait BidirectionalStack {
     fn borrow_back(&self) -> &[u8];
     fn borrow_mut_front(&mut self) -> &mut [u8];
     fn borrow_mut_back(&mut self) -> &mut [u8];
+    fn is_empty_front(&self) -> bool;
+    fn is_empty_back(&self) -> bool;
 }

@@ -15,5 +15,6 @@ ciborium.workspace = true
 serde.workspace = true
 solana-program.workspace = true
 thiserror.workspace = true
+typetag.workspace = true
 
 utils.workspace = true

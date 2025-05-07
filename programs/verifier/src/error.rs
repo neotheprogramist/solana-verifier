@@ -1,3 +1,4 @@
+use std::io;
 use std::num::TryFromIntError;
 
 use thiserror::Error;
@@ -25,4 +26,40 @@ pub enum VerifierError {
 
     #[error(transparent)]
     TryFromInt(#[from] TryFromIntError),
+
+    /// The stack is empty and cannot be popped from.
+    #[error("Empty stack - attempted to read from an empty stack")]
+    EmptyStack,
+
+    /// Error propagated from the stack module.
+    #[error("Stack capacity exceeded")]
+    StackCapacity,
+
+    /// Error during serialization.
+    #[error(transparent)]
+    Serialization(#[from] ciborium::ser::Error<io::Error>),
+
+    /// Error during deserialization.
+    #[error(transparent)]
+    Deserialization(#[from] ciborium::de::Error<io::Error>),
+
+    /// The task data length is invalid.
+    #[error("Invalid task length - task data exceeds maximum allowed size")]
+    InvalidTaskLength,
+
+    /// Error during task execution.
+    #[error("Execution error: {0}")]
+    Execution(String),
+
+    /// Error in task implementation.
+    #[error("Task error: {0}")]
+    Task(String),
+
+    /// Error for invalid data.
+    #[error("Invalid data: {0}")]
+    InvalidData(String),
+
+    /// General IO error.
+    #[error(transparent)]
+    Io(#[from] io::Error),
 }
