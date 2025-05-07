@@ -1,4 +1,5 @@
-use solana_program::{msg, program_error::ProgramError};
+use std::num::TryFromIntError;
+
 use thiserror::Error;
 
 /// Custom errors for the verifier program
@@ -21,11 +22,7 @@ pub enum VerifierError {
 
     #[error("Error serializing scheduler")]
     SchedulerSerializationError,
-}
 
-impl From<VerifierError> for ProgramError {
-    fn from(e: VerifierError) -> Self {
-        msg!("Error: {}", e);
-        ProgramError::Custom(e as u32)
-    }
+    #[error(transparent)]
+    TryFromInt(#[from] TryFromIntError),
 }

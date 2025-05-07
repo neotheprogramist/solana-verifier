@@ -7,7 +7,7 @@ use solana_program::{
 };
 use utils::AccountCast;
 
-use crate::{instruction::VerifierInstruction, state::VerifierAccount};
+use crate::{instruction::VerifierInstruction, state::BidirectionalStackAccount};
 
 /// Program state handler
 pub struct Processor;
@@ -23,9 +23,9 @@ impl Processor {
 
         // Increment and store the number of times the account has been greeted
         let mut data = account.try_borrow_mut_data()?;
-        let verifier_account = VerifierAccount::cast_mut(*data);
-        verifier_account.counter += 1;
-        verifier_account.double_counter += 2;
+        let stack_account = BidirectionalStackAccount::cast_mut(*data);
+        stack_account.front_index += 1;
+        stack_account.back_index += 2;
 
         Ok(())
     }

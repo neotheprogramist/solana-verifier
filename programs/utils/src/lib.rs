@@ -12,3 +12,16 @@ pub trait AccountCast: Sized {
         unsafe { &mut *(slice.as_mut_ptr() as *mut Self) }
     }
 }
+
+pub trait BidirectionalStack {
+    type Error;
+
+    fn push_front(&mut self, data: &[u8]) -> Result<(), Self::Error>;
+    fn push_back(&mut self, data: &[u8]) -> Result<(), Self::Error>;
+    fn pop_front(&mut self) -> Result<(), Self::Error>;
+    fn pop_back(&mut self) -> Result<(), Self::Error>;
+    fn borrow_front(&self) -> Result<&[u8], Self::Error>;
+    fn borrow_back(&self) -> Result<&[u8], Self::Error>;
+    fn borrow_mut_front(&mut self) -> Result<&mut [u8], Self::Error>;
+    fn borrow_mut_back(&mut self) -> Result<&mut [u8], Self::Error>;
+}

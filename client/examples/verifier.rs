@@ -8,7 +8,7 @@ use solana_sdk::{
 };
 use std::{mem::size_of, path::Path};
 use utils::AccountCast;
-use verifier::{instruction::VerifierInstruction, state::VerifierAccount};
+use verifier::{instruction::VerifierInstruction, state::BidirectionalStackAccount};
 
 /// Main entry point for the Solana program client
 fn main() -> client::Result<()> {
@@ -28,7 +28,7 @@ fn main() -> client::Result<()> {
     let program_id = setup_program(&client, &payer, &config, program_path)?;
 
     // Setup greeting account
-    let space = size_of::<VerifierAccount>();
+    let space = size_of::<BidirectionalStackAccount>();
     println!("Greeting account space: {}", space);
     let greeting_account = setup_account(
         &client,
@@ -58,12 +58,9 @@ fn main() -> client::Result<()> {
     let mut account_data = client
         .get_account_data(&greeting_account.pubkey())
         .map_err(ClientError::SolanaClientError)?;
-    let greeting_account = VerifierAccount::cast_mut(&mut account_data);
-    println!("Greeting counter: {}", greeting_account.counter);
-    println!(
-        "Greeting double counter: {}",
-        greeting_account.double_counter
-    );
+    let stack_account = BidirectionalStackAccount::cast_mut(&mut account_data);
+    println!("Stack front index: {}", stack_account.front_index);
+    println!("Stack back index: {}", stack_account.back_index);
 
     Ok(())
 }

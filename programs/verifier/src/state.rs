@@ -1,13 +1,125 @@
-use utils::AccountCast;
+use utils::{AccountCast, BidirectionalStack};
+
+use crate::error::VerifierError;
+
+const CAPACITY: usize = 1024;
+const LENGTH_SIZE: usize = 2;
+
 /// Define the type of state stored in accounts
 #[derive(Debug)]
-pub struct VerifierAccount {
-    /// number of greetings
-    pub counter: u32,
-
-    pub double_counter: u8,
-
-    pub data: [u8; 1048576],
+pub struct BidirectionalStackAccount {
+    pub front_index: usize,
+    pub back_index: usize,
+    pub buffer: [u8; CAPACITY],
+}
+impl Default for BidirectionalStackAccount {
+    fn default() -> Self {
+        Self {
+            front_index: 0,
+            back_index: CAPACITY,
+            buffer: [0; CAPACITY],
+        }
+    }
 }
 
-impl AccountCast for VerifierAccount {}
+impl AccountCast for BidirectionalStackAccount {}
+
+impl BidirectionalStack for BidirectionalStackAccount {
+    type Error = VerifierError;
+
+    fn push_front(&mut self, data: &[u8]) -> Result<(), Self::Error> {
+        for byte in data.iter().rev() {
+            self.buffer[self.front_index] = *byte;
+            self.front_index = self.front_index.saturating_add(1);
+        }
+
+        let data_length = data.len();
+        for i in 0..LENGTH_SIZE {
+            self.buffer[self.front_index] = ((data_length >> (i * 8)) & 0xFF).try_into()?;
+            self.front_index = self.front_index.saturating_add(1);
+        }
+
+        Ok(())
+    }
+
+    fn push_back(&mut self, data: &[u8]) -> Result<(), Self::Error> {
+        for byte in data.iter().rev() {
+            self.back_index = self.back_index.saturating_sub(1);
+            self.buffer[self.back_index] = *byte;
+        }
+
+        let data_length = data.len();
+        for i in 0..LENGTH_SIZE {
+            self.back_index = self.back_index.saturating_sub(1);
+            self.buffer[self.back_index] = ((data_length >> (i * 8)) & 0xFF).try_into()?;
+        }
+
+        Ok(())
+    }
+
+    fn pop_front(&mut self) -> Result<(), Self::Error> {
+        let mut data_length = 0_usize;
+        for _ in 0..LENGTH_SIZE {
+            self.front_index = self.front_index.saturating_sub(1);
+            let x: usize = self.buffer[self.front_index].into();
+            data_length = (data_length << 8) | x;
+        }
+
+        self.front_index = self.front_index.saturating_sub(data_length);
+
+        Ok(())
+    }
+
+    fn pop_back(&mut self) -> Result<(), Self::Error> {
+        let mut data_length = 0_usize;
+        for _ in 0..LENGTH_SIZE {
+            let x: usize = self.buffer[self.back_index].into();
+            data_length = (data_length << 8) | x;
+            self.back_index = self.back_index.saturating_add(1);
+        }
+
+        self.back_index = self.back_index.saturating_add(data_length);
+
+        Ok(())
+    }
+
+    fn borrow_front(&self) -> Result<&[u8], Self::Error> {
+        let mut data_length = 0_usize;
+        for i in 0..LENGTH_SIZE {
+            let x: usize = self.buffer[self.front_index.saturating_sub(i)].into();
+            data_length = (data_length << 8) | x;
+        }
+
+        Ok(&self.buffer[self.front_index.saturating_sub(data_length)..self.front_index])
+    }
+
+    fn borrow_back(&self) -> Result<&[u8], Self::Error> {
+        let mut data_length = 0_usize;
+        for i in 0..LENGTH_SIZE {
+            let x: usize = self.buffer[self.back_index.saturating_add(i)].into();
+            data_length = (data_length << 8) | x;
+        }
+
+        Ok(&self.buffer[self.back_index..self.back_index.saturating_add(data_length)])
+    }
+
+    fn borrow_mut_front(&mut self) -> Result<&mut [u8], Self::Error> {
+        let mut data_length = 0_usize;
+        for i in 0..LENGTH_SIZE {
+            let x: usize = self.buffer[self.front_index.saturating_sub(i)].into();
+            data_length = (data_length << 8) | x;
+        }
+
+        Ok(&mut self.buffer[self.front_index.saturating_sub(data_length)..self.front_index])
+    }
+
+    fn borrow_mut_back(&mut self) -> Result<&mut [u8], Self::Error> {
+        let mut data_length = 0_usize;
+        for i in 0..LENGTH_SIZE {
+            let x: usize = self.buffer[self.back_index.saturating_add(i)].into();
+            data_length = (data_length << 8) | x;
+        }
+
+        Ok(&mut self.buffer[self.back_index..self.back_index.saturating_add(data_length)])
+    }
+}
