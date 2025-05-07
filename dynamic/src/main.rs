@@ -1,51 +1,40 @@
+use bird::Bird;
 use cat::Cat;
 use dog::Dog;
-use traits::Executable;
+use mouse::Mouse;
 use utils::BidirectionalStack;
 use verifier::state::BidirectionalStackAccount;
 
+pub mod bird;
 pub mod cat;
 pub mod dog;
+pub mod mouse;
 pub mod traits;
 
-fn execute(stack: &mut BidirectionalStackAccount) {
-    let data = stack.borrow_mut_front();
-    match data[0] {
-        Dog::TYPE_TAG => {
-            let dog = Dog::cast_mut(&mut data[1..]);
-            dog.execute();
-        }
-        Cat::TYPE_TAG => {
-            let cat = Cat::cast_mut(&mut data[1..]);
-            cat.execute();
-        }
-        _ => {
-            panic!("Unknown tag: {}", data[0]);
-        }
-    }
-    stack.pop_front();
-}
+// Include the auto-generated code
+include!(concat!(env!("OUT_DIR"), "/executable_dispatch.rs"));
+
+// The `execute` function is now generated in the included file
+// Also `push_executable` function is generated to handle serialization
 
 fn main() {
     let dog: Dog = Dog::new("Buddy");
-    let cat = Cat::new("Tabby");
+    let cat: Cat = Cat::new("Tabby");
+    let mouse: Mouse = Mouse::new("Jerry");
+    let bird: Bird = Bird::new("Sparrow", true);
 
     let mut stack = BidirectionalStackAccount::default();
 
-    // Push dog to the stack
-    let mut serialized_dog = Vec::new();
-    serialized_dog.push(Dog::TYPE_TAG);
-    serialized_dog.extend_from_slice(dog.as_bytes());
-    stack.push_front(&serialized_dog).unwrap();
+    // Use the generated helper function - notice we can add new types
+    // without modifying the execution logic
+    push_executable(&mut stack, cat);
+    push_executable(&mut stack, dog);
+    push_executable(&mut stack, mouse);
+    push_executable(&mut stack, bird);
 
-    // Push cat to the stack
-    let mut serialized_cat = Vec::new();
-    serialized_cat.push(Cat::TYPE_TAG);
-    serialized_cat.extend_from_slice(cat.as_bytes());
-    stack.push_front(&serialized_cat).unwrap();
-
-    // Retrieve and execute
+    // Execute them all using the generated function
     execute(&mut stack);
-
+    execute(&mut stack);
+    execute(&mut stack);
     execute(&mut stack);
 }
