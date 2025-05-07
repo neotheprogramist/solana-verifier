@@ -1,9 +1,8 @@
 [package]
-name = "dynamic"
+name = "animals"
 version.workspace = true
 edition.workspace = true
 
 [dependencies]
-animals.workspace = true
 utils.workspace = true
-verifier.workspace = true
+verifier.workspace = true 
