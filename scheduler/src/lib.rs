@@ -33,7 +33,7 @@ pub trait SchedulerTask: Send + Sync {
     /// The scheduler is provided for pushing/popping data during execution.
     fn execute(&mut self, scheduler: &mut Scheduler) -> Result<Vec<Box<dyn SchedulerTask>>>;
 
-    fn push_self(&mut self) -> bool {
+    fn is_finished(&mut self) -> bool {
         false
     }
 }
@@ -102,7 +102,7 @@ impl Scheduler {
             .execute(self)
             .map_err(|e| Error::Execution(format!("Task execution failed: {}", e)))?;
 
-        if task.push_self() {
+        if !task.is_finished() {
             self.push_task(task)?;
         }
 

@@ -45,6 +45,10 @@ impl SchedulerTask for Fib {
             ]),
         }
     }
+
+    fn is_finished(&mut self) -> bool {
+        true
+    }
 }
 
 /// A helper task that combines the results of two Fibonacci subtasks
@@ -69,6 +73,10 @@ impl SchedulerTask for FibCombiner {
 
         // Schedule the addition task and the formatter
         Ok(vec![Box::new(Add::new(output1, output2))])
+    }
+
+    fn is_finished(&mut self) -> bool {
+        true
     }
 }
 

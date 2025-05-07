@@ -73,6 +73,9 @@ pub trait Executable: Sized + TypeIdentifiable {
     /// Using u32 instead of u8 for a much larger ID space
     const TYPE_TAG: u32 = Self::TYPE_ID;
     fn execute(&mut self);
+    fn is_finished(&mut self) -> bool {
+        false
+    }
 
     /// Cast a slice to an immutable reference of Self
     fn cast(slice: &[u8]) -> &Self {
