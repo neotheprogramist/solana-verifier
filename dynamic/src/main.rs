@@ -10,7 +10,7 @@ use verifier::state::BidirectionalStackAccount;
 pub mod mouse;
 
 // Include the auto-generated code
-include!(concat!(env!("OUT_DIR"), "/executable_dispatch.rs"));
+include!(concat!(env!("OUT_DIR"), "/dynamic_executable_dispatch.rs"));
 
 fn main() {
     println!("Dynamic Executable Type System Test");
