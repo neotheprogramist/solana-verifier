@@ -41,7 +41,7 @@ fn main() {
     // Add a case for each type
     for (type_name, crate_name) in &types {
         let struct_name = type_name.split("::").last().unwrap_or(type_name);
-        
+
         if crate_name == "crate" {
             dispatch_code.push_str(&format!("        // TYPE_TAG from {} crate\n", crate_name));
             dispatch_code.push_str(&format!("        crate::{}::TYPE_TAG => {{\n", type_name));
@@ -52,7 +52,10 @@ fn main() {
             ));
         } else {
             dispatch_code.push_str(&format!("        // TYPE_TAG from {} crate\n", crate_name));
-            dispatch_code.push_str(&format!("        {}::{}::TYPE_TAG => {{\n", crate_name, type_name));
+            dispatch_code.push_str(&format!(
+                "        {}::{}::TYPE_TAG => {{\n",
+                crate_name, type_name
+            ));
             dispatch_code.push_str(&format!(
                 "            let {} = {}::{}::cast_mut(&mut data[1..]);\n",
                 struct_name.to_lowercase(),
@@ -60,7 +63,7 @@ fn main() {
                 type_name
             ));
         }
-        
+
         dispatch_code.push_str(&format!(
             "            {}.execute();\n",
             struct_name.to_lowercase()
@@ -104,7 +107,11 @@ fn visit_dir(dir: &Path, types: &mut HashSet<(String, String)>, crate_name: &str
 }
 
 // Parse a Rust file to find types implementing the Executable trait
-fn find_executable_types(file_path: &Path, types: &mut HashSet<(String, String)>, crate_name: &str) {
+fn find_executable_types(
+    file_path: &Path,
+    types: &mut HashSet<(String, String)>,
+    crate_name: &str,
+) {
     let content = fs::read_to_string(file_path).unwrap();
 
     // Skip the traits.rs file since it defines the trait
@@ -133,7 +140,10 @@ fn find_executable_types(file_path: &Path, types: &mut HashSet<(String, String)>
                     .trim_matches(|c| c == '{' || c == ' ' || c == '\t');
 
                 // Add the fully qualified name and crate
-                types.insert((format!("{}::{}", mod_name, struct_name), crate_name.to_string()));
+                types.insert((
+                    format!("{}::{}", mod_name, struct_name),
+                    crate_name.to_string(),
+                ));
             }
         }
     }

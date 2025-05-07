@@ -1,4 +1,4 @@
-use crate::traits::Executable;
+use utils::Executable;
 
 #[repr(C)]
 pub struct Mouse {

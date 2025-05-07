@@ -1,9 +1,9 @@
-use crate::traits::Executable;
+use utils::Executable;
 
 #[repr(C)]
 pub struct Frog {
-    name: [u8; 32],    // Fixed-size array for name
-    is_jumping: bool,  // Status flag for jumping
+    name: [u8; 32],   // Fixed-size array for name
+    is_jumping: bool, // Status flag for jumping
 }
 
 impl Frog {
@@ -34,9 +34,12 @@ impl Executable for Frog {
         if self.is_jumping {
             println!("Ribbit! I'm {} and I'm jumping!", self.get_name());
         } else {
-            println!("Ribbit! I'm {} and I'm resting on a lily pad.", self.get_name());
+            println!(
+                "Ribbit! I'm {} and I'm resting on a lily pad.",
+                self.get_name()
+            );
         }
         // Toggle jumping state each time it executes
         self.is_jumping = !self.is_jumping;
     }
-} 
+}

@@ -1,16 +1,14 @@
 use animals::bird::Bird;
 use animals::cat::Cat;
 use animals::frog::Frog;
-use animals::traits::Executable as AnimalsExecutable;
-use crate::traits::Executable;
 use dog::Dog;
 use mouse::Mouse;
 use utils::BidirectionalStack;
+use utils::Executable;
 use verifier::state::BidirectionalStackAccount;
 
 pub mod dog;
 pub mod mouse;
-pub mod traits;
 
 // Include the auto-generated code
 include!(concat!(env!("OUT_DIR"), "/executable_dispatch.rs"));
@@ -19,7 +17,7 @@ include!(concat!(env!("OUT_DIR"), "/executable_dispatch.rs"));
 // Also `push_executable` function is generated to handle serialization
 
 // Define the push_executable function for local types that implement our Executable trait
-pub fn push_executable<T: traits::Executable>(stack: &mut BidirectionalStackAccount, executable: T) {
+pub fn push_executable<T: Executable>(stack: &mut BidirectionalStackAccount, executable: T) {
     let mut serialized = Vec::new();
     serialized.push(T::TYPE_TAG);
     serialized.extend_from_slice(executable.as_bytes());

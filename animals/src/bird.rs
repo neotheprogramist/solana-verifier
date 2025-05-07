@@ -1,4 +1,4 @@
-use crate::traits::Executable;
+use utils::Executable;
 
 #[repr(C)]
 pub struct Bird {
@@ -39,4 +39,4 @@ impl Executable for Bird {
         // Toggle flying state each time it executes
         self.is_flying = !self.is_flying;
     }
-} 
+}

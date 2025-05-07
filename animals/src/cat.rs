@@ -1,4 +1,4 @@
-use crate::traits::Executable;
+use utils::Executable;
 
 #[repr(C)]
 pub struct Cat {
@@ -29,4 +29,4 @@ impl Executable for Cat {
     fn execute(&mut self) {
         println!("Meow! I am {}.", self.get_color());
     }
-} 
+}
