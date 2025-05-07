@@ -1,5 +1,6 @@
 use animals::bird::Bird;
 use animals::cat::Cat;
+use animals::frog::Frog;
 use animals::traits::Executable as AnimalsExecutable;
 use crate::traits::Executable;
 use dog::Dog;
@@ -40,11 +41,19 @@ pub fn push_bird(stack: &mut BidirectionalStackAccount, bird: Bird) {
     stack.push_front(&serialized).unwrap();
 }
 
+pub fn push_frog(stack: &mut BidirectionalStackAccount, frog: Frog) {
+    let mut serialized = Vec::new();
+    serialized.push(Frog::TYPE_TAG);
+    serialized.extend_from_slice(frog.as_bytes());
+    stack.push_front(&serialized).unwrap();
+}
+
 fn main() {
     let dog: Dog = Dog::new("Buddy");
     let cat: Cat = Cat::new("Tabby");
     let mouse: Mouse = Mouse::new("Jerry");
     let bird: Bird = Bird::new("Sparrow", true);
+    let frog: Frog = Frog::new("Kermit", false);
 
     let mut stack = BidirectionalStackAccount::default();
 
@@ -53,8 +62,10 @@ fn main() {
     push_executable(&mut stack, dog);
     push_executable(&mut stack, mouse);
     push_bird(&mut stack, bird);
+    push_frog(&mut stack, frog);
 
     // Execute them all using the generated function
+    execute(&mut stack);
     execute(&mut stack);
     execute(&mut stack);
     execute(&mut stack);
