@@ -1,9 +1,12 @@
-use utils::Executable;
+use utils::impl_type_identifiable;
+use utils::{Executable, TypeIdentifiable};
 
 #[repr(C)]
 pub struct Dog {
     name: [u8; 32], // Fixed-size array for name
 }
+
+impl_type_identifiable!(Dog);
 
 impl Dog {
     pub fn new(name: &str) -> Self {
@@ -25,7 +28,6 @@ impl Dog {
 }
 
 impl Executable for Dog {
-    const TYPE_TAG: u8 = 1;
     fn execute(&mut self) {
         println!("Woof! I'm {}.", self.get_name());
     }

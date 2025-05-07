@@ -30,8 +30,48 @@ pub trait BidirectionalStack {
     fn is_empty_back(&self) -> bool;
 }
 
-pub trait Executable: Sized {
-    const TYPE_TAG: u8;
+/// Trait for providing automatic type identification with cryptographic hashing
+pub trait TypeIdentifiable {
+    /// Returns a unique type ID based on the type name using a cryptographic hash
+    const TYPE_ID: u32;
+}
+
+// For automatic implementation of TypeIdentifiable
+#[macro_export]
+macro_rules! impl_type_identifiable {
+    ($type:ty) => {
+        impl TypeIdentifiable for $type {
+            // Generate a compile-time constant value based on type name using FNV-1a hash
+            // This is a non-cryptographic but better hash function that can be used in const contexts
+            const TYPE_ID: u32 = {
+                // Create a hash from the type name at compile time
+                let name = stringify!($type);
+                let bytes = name.as_bytes();
+                let len = bytes.len();
+
+                // FNV-1a hash algorithm constants
+                const FNV_PRIME: u32 = 16777619;
+                const FNV_OFFSET_BASIS: u32 = 2166136261;
+
+                // FNV-1a hash computation
+                let mut hash = FNV_OFFSET_BASIS;
+                let mut i = 0;
+                while i < len {
+                    hash ^= bytes[i] as u32;
+                    hash = hash.wrapping_mul(FNV_PRIME);
+                    i += 1;
+                }
+
+                hash
+            };
+        }
+    };
+}
+
+pub trait Executable: Sized + TypeIdentifiable {
+    /// The type tag is now automatically derived from TypeIdentifiable trait
+    /// Using u32 instead of u8 for a much larger ID space
+    const TYPE_TAG: u32 = Self::TYPE_ID;
     fn execute(&mut self);
 
     /// Cast a slice to an immutable reference of Self

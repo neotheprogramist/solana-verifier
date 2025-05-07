@@ -1,10 +1,13 @@
-use utils::Executable;
+use utils::impl_type_identifiable;
+use utils::{Executable, TypeIdentifiable};
 
 #[repr(C)]
 pub struct Bird {
     species: [u8; 32], // Fixed-size array for species
     is_flying: bool,   // Status flag
 }
+
+impl_type_identifiable!(Bird);
 
 impl Bird {
     pub fn new(species: &str, is_flying: bool) -> Self {
@@ -29,7 +32,7 @@ impl Bird {
 }
 
 impl Executable for Bird {
-    const TYPE_TAG: u8 = 3; // Different from Dog (1), Cat (0), and Mouse (2)
+    // No need to specify TYPE_TAG, it's automatically derived from TypeIdentifiable
     fn execute(&mut self) {
         if self.is_flying {
             println!("Tweet! I'm a {} flying high!", self.get_species());

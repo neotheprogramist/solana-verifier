@@ -1,9 +1,12 @@
-use utils::Executable;
+use utils::impl_type_identifiable;
+use utils::{Executable, TypeIdentifiable};
 
 #[repr(C)]
 pub struct Mouse {
     name: [u8; 32], // Fixed-size array for name
 }
+
+impl_type_identifiable!(Mouse);
 
 impl Mouse {
     pub fn new(name: &str) -> Self {
@@ -25,7 +28,7 @@ impl Mouse {
 }
 
 impl Executable for Mouse {
-    const TYPE_TAG: u8 = 2; // Different from Dog (1) and Cat (0)
+    // No need to specify TYPE_TAG, it's automatically derived from TypeIdentifiable
     fn execute(&mut self) {
         println!("Squeak! I'm {}.", self.get_name());
     }

@@ -35,7 +35,18 @@ fn main() {
     dispatch_code
         .push_str("pub fn execute(stack: &mut verifier::state::BidirectionalStackAccount) {\n");
     dispatch_code.push_str("    let data = stack.borrow_mut_front();\n");
-    dispatch_code.push_str("    match data[0] {\n");
+
+    // We need to ensure we have enough data (at least 4 bytes for u32)
+    dispatch_code.push_str("    if data.len() < 4 {\n");
+    dispatch_code.push_str("        panic!(\"Data too short to contain type tag\");\n");
+    dispatch_code.push_str("    }\n");
+
+    // Read the 32-bit type tag from the first 4 bytes
+    dispatch_code
+        .push_str("    let type_tag_bytes: [u8; 4] = [data[0], data[1], data[2], data[3]];\n");
+    dispatch_code.push_str("    let type_tag = u32::from_le_bytes(type_tag_bytes);\n");
+
+    dispatch_code.push_str("    match type_tag {\n");
 
     // Add a case for each type
     for (type_name, crate_name) in &types {
@@ -45,7 +56,7 @@ fn main() {
             dispatch_code.push_str(&format!("        // TYPE_TAG from {} crate\n", crate_name));
             dispatch_code.push_str(&format!("        crate::{}::TYPE_TAG => {{\n", type_name));
             dispatch_code.push_str(&format!(
-                "            let {} = crate::{}::cast_mut(&mut data[1..]);\n",
+                "            let {} = crate::{}::cast_mut(&mut data[4..]);\n",
                 struct_name.to_lowercase(),
                 type_name
             ));
@@ -56,7 +67,7 @@ fn main() {
                 crate_name, type_name
             ));
             dispatch_code.push_str(&format!(
-                "            let {} = {}::{}::cast_mut(&mut data[1..]);\n",
+                "            let {} = {}::{}::cast_mut(&mut data[4..]);\n",
                 struct_name.to_lowercase(),
                 crate_name,
                 type_name
@@ -72,10 +83,9 @@ fn main() {
 
     // Add default case
     dispatch_code.push_str("        _ => {\n");
-    dispatch_code.push_str("            panic!(\"Unknown type tag: {}\", data[0]);\n");
+    dispatch_code.push_str("            panic!(\"Unknown type tag: {}\", type_tag);\n");
     dispatch_code.push_str("        }\n");
     dispatch_code.push_str("    }\n");
-    dispatch_code.push_str("    stack.pop_front();\n");
     dispatch_code.push_str("}\n");
 
     // Write the generated code to a file

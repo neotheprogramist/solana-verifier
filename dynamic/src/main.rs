@@ -33,9 +33,9 @@ fn main() {
     // Create and push some executable types
     push_executable(&mut stack, Dog::new("Rex"));
     push_executable(&mut stack, Mouse::new("Jerry"));
-    push_cat(&mut stack, Cat::new("Black"));
-    push_bird(&mut stack, Bird::new("Eagle", true));
-    push_frog(&mut stack, Frog::new("Kermit", false));
+    push_executable(&mut stack, Cat::new("Black"));
+    push_executable(&mut stack, Bird::new("Eagle", true));
+    push_executable(&mut stack, Frog::new("Kermit", false));
 
     println!("\nExecuting types from stack:");
     println!("===========================");
@@ -43,35 +43,15 @@ fn main() {
     // Execute each type
     while !stack.is_empty_front() {
         execute(&mut stack);
+        stack.pop_front();
     }
 }
 
 // Define the push_executable function for local types that implement our Executable trait
 pub fn push_executable<T: Executable>(stack: &mut BidirectionalStackAccount, executable: T) {
     let mut serialized = Vec::new();
-    serialized.push(T::TYPE_TAG);
+    // Convert the u32 TYPE_TAG to bytes (little-endian)
+    serialized.extend_from_slice(&T::TYPE_TAG.to_le_bytes());
     serialized.extend_from_slice(executable.as_bytes());
-    stack.push_front(&serialized).unwrap();
-}
-
-// Define specialized functions for animals crate types
-pub fn push_cat(stack: &mut BidirectionalStackAccount, cat: Cat) {
-    let mut serialized = Vec::new();
-    serialized.push(Cat::TYPE_TAG);
-    serialized.extend_from_slice(cat.as_bytes());
-    stack.push_front(&serialized).unwrap();
-}
-
-pub fn push_bird(stack: &mut BidirectionalStackAccount, bird: Bird) {
-    let mut serialized = Vec::new();
-    serialized.push(Bird::TYPE_TAG);
-    serialized.extend_from_slice(bird.as_bytes());
-    stack.push_front(&serialized).unwrap();
-}
-
-pub fn push_frog(stack: &mut BidirectionalStackAccount, frog: Frog) {
-    let mut serialized = Vec::new();
-    serialized.push(Frog::TYPE_TAG);
-    serialized.extend_from_slice(frog.as_bytes());
     stack.push_front(&serialized).unwrap();
 }

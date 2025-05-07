@@ -1,9 +1,12 @@
-use utils::Executable;
+use utils::impl_type_identifiable;
+use utils::{Executable, TypeIdentifiable};
 
 #[repr(C)]
 pub struct Cat {
     color: [u8; 32], // Fixed-size array for color
 }
+
+impl_type_identifiable!(Cat);
 
 impl Cat {
     pub fn new(color: &str) -> Self {
@@ -25,7 +28,6 @@ impl Cat {
 }
 
 impl Executable for Cat {
-    const TYPE_TAG: u8 = 0;
     fn execute(&mut self) {
         println!("Meow! I am {}.", self.get_color());
     }
