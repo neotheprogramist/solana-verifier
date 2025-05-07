@@ -27,22 +27,22 @@ fn main() -> client::Result<()> {
     // Deploy or use existing program
     let program_id = setup_program(&client, &payer, &config, program_path)?;
 
-    // Setup greeting account
+    // Setup verifier account
     let space = size_of::<BidirectionalStackAccount>();
-    println!("Greeting account space: {}", space);
-    let greeting_account = setup_account(
+    println!("Verifier account space: {}", space);
+    let verifier_account = setup_account(
         &client,
         &payer,
         &program_id,
         &config,
         space,
-        "greeting-account",
+        "verifier-account",
     )?;
 
     let instructions = vec![Instruction::new_with_borsh(
         program_id,
         &VerifierInstruction::IncrementCounter,
-        vec![AccountMeta::new(greeting_account.pubkey(), false)],
+        vec![AccountMeta::new(verifier_account.pubkey(), false)],
     )];
 
     // Interact with the program using the instructions directly
@@ -50,13 +50,13 @@ fn main() -> client::Result<()> {
         &client,
         &payer,
         &program_id,
-        &greeting_account,
+        &verifier_account,
         &instructions,
     )?;
 
-    println!("Greeting program interaction completed successfully!");
+    println!("Verifier program interaction completed successfully!");
     let mut account_data = client
-        .get_account_data(&greeting_account.pubkey())
+        .get_account_data(&verifier_account.pubkey())
         .map_err(ClientError::SolanaClientError)?;
     let stack_account = BidirectionalStackAccount::cast_mut(&mut account_data);
     println!("Stack front index: {}", stack_account.front_index);
