@@ -7,7 +7,6 @@ use utils::BidirectionalStack;
 use utils::Executable;
 use verifier::state::BidirectionalStackAccount;
 
-pub mod dog;
 pub mod mouse;
 
 // Include the auto-generated code
@@ -16,28 +15,31 @@ include!(concat!(env!("OUT_DIR"), "/executable_dispatch.rs"));
 fn main() {
     println!("Dynamic Executable Type System Test");
     println!("===================================");
-    
+
     // Print a list of all found executable types
     println!("Found the following executable types:");
-    println!("1. Dog (TYPE_TAG: {}) from dynamic crate", Dog::TYPE_TAG);
-    println!("2. Mouse (TYPE_TAG: {}) from dynamic crate", Mouse::TYPE_TAG);
-    println!("3. Cat (TYPE_TAG: {}) from animals crate", Cat::TYPE_TAG); 
+    println!("1. Dog (TYPE_TAG: {}) from dog crate", Dog::TYPE_TAG);
+    println!(
+        "2. Mouse (TYPE_TAG: {}) from dynamic crate",
+        Mouse::TYPE_TAG
+    );
+    println!("3. Cat (TYPE_TAG: {}) from animals crate", Cat::TYPE_TAG);
     println!("4. Bird (TYPE_TAG: {}) from animals crate", Bird::TYPE_TAG);
     println!("5. Frog (TYPE_TAG: {}) from animals crate", Frog::TYPE_TAG);
-    
+
     // Create a new stack for testing
     let mut stack = BidirectionalStackAccount::default();
-    
+
     // Create and push some executable types
     push_executable(&mut stack, Dog::new("Rex"));
     push_executable(&mut stack, Mouse::new("Jerry"));
     push_cat(&mut stack, Cat::new("Black"));
     push_bird(&mut stack, Bird::new("Eagle", true));
     push_frog(&mut stack, Frog::new("Kermit", false));
-    
+
     println!("\nExecuting types from stack:");
     println!("===========================");
-    
+
     // Execute each type
     while !stack.is_empty_front() {
         execute(&mut stack);

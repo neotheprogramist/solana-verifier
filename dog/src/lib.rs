@@ -14,7 +14,7 @@ impl Dog {
         Self { name: name_bytes }
     }
 
-    fn get_name(&self) -> String {
+    pub fn get_name(&self) -> String {
         let null_pos = self
             .name
             .iter()

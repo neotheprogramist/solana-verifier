@@ -5,6 +5,7 @@ edition.workspace = true
 
 [dependencies]
 animals.workspace = true
+dog.workspace = true
 utils.workspace = true
 verifier.workspace = true
 

@@ -6,11 +6,11 @@ use std::path::Path;
 
 fn main() {
     println!("cargo:rerun-if-changed=src");
-    
+
     // Find the workspace root directory
     let current_dir = env::current_dir().unwrap();
     let workspace_root = find_workspace_root(&current_dir).unwrap_or(current_dir);
-    
+
     // Find all Rust files in the current crate's src directory
     let src_dir = Path::new("src");
     let out_dir = env::var_os("OUT_DIR").unwrap();
@@ -91,7 +91,7 @@ fn main() {
 // Helper function to find the workspace root directory
 fn find_workspace_root(start_dir: &Path) -> Option<std::path::PathBuf> {
     let mut current = start_dir.to_path_buf();
-    
+
     loop {
         let cargo_toml = current.join("Cargo.toml");
         if cargo_toml.exists() {
@@ -102,12 +102,12 @@ fn find_workspace_root(start_dir: &Path) -> Option<std::path::PathBuf> {
                 }
             }
         }
-        
+
         if !current.pop() {
             break;
         }
     }
-    
+
     None
 }
 
@@ -117,16 +117,27 @@ fn discover_and_scan_crates(workspace_root: &Path, types: &mut HashSet<(String, 
     let workspace_cargo = workspace_root.join("Cargo.toml");
     if let Ok(content) = fs::read_to_string(workspace_cargo) {
         // Parse the members array from [workspace] section
-        if let Some(members_line) = content.lines().find(|line| line.trim().starts_with("members")) {
-            let members_str = members_line.split('=').nth(1).unwrap_or("").trim().trim_matches(|c| c == '[' || c == ']' || c == '"' || c == '\'');
-            let members: Vec<&str> = members_str.split(',').map(|s| s.trim().trim_matches(|c| c == '"' || c == '\'')).collect();
-            
+        if let Some(members_line) = content
+            .lines()
+            .find(|line| line.trim().starts_with("members"))
+        {
+            let members_str = members_line
+                .split('=')
+                .nth(1)
+                .unwrap_or("")
+                .trim()
+                .trim_matches(|c| c == '[' || c == ']' || c == '"' || c == '\'');
+            let members: Vec<&str> = members_str
+                .split(',')
+                .map(|s| s.trim().trim_matches(|c| c == '"' || c == '\''))
+                .collect();
+
             for member in members {
                 // Handle glob patterns like "programs/*"
                 if member.contains('*') {
                     let glob_base = member.split('*').next().unwrap_or("");
                     let base_path = workspace_root.join(glob_base);
-                    
+
                     if base_path.exists() && base_path.is_dir() {
                         if let Ok(entries) = fs::read_dir(&base_path) {
                             for entry in entries.flatten() {
@@ -140,7 +151,10 @@ fn discover_and_scan_crates(workspace_root: &Path, types: &mut HashSet<(String, 
                 } else {
                     // Direct member reference
                     let crate_path = workspace_root.join(member);
-                    if crate_path.exists() && crate_path.is_dir() && crate_path.join("Cargo.toml").exists() {
+                    if crate_path.exists()
+                        && crate_path.is_dir()
+                        && crate_path.join("Cargo.toml").exists()
+                    {
                         scan_crate(workspace_root, &crate_path, types);
                     }
                 }
@@ -155,14 +169,14 @@ fn scan_crate(_workspace_root: &Path, crate_path: &Path, types: &mut HashSet<(St
     if crate_path == env::current_dir().unwrap() {
         return;
     }
-    
+
     // Get the crate name from the directory name or Cargo.toml
     let crate_name = if let Some(name) = crate_path.file_name() {
         name.to_string_lossy().to_string()
     } else {
         return;
     };
-    
+
     // Check if this crate has a src directory
     let src_dir = crate_path.join("src");
     if src_dir.exists() && src_dir.is_dir() {
@@ -170,7 +184,7 @@ fn scan_crate(_workspace_root: &Path, crate_path: &Path, types: &mut HashSet<(St
         let rel_path = pathdiff::diff_paths(&src_dir, &env::current_dir().unwrap())
             .unwrap_or_else(|| src_dir.clone());
         println!("cargo:rerun-if-changed={}", rel_path.display());
-        
+
         // Visit the src directory to find Executable implementations
         visit_dir(&src_dir, types, &crate_name);
     }
@@ -200,14 +214,19 @@ fn find_executable_types(
     crate_name: &str,
 ) {
     let content = fs::read_to_string(file_path).unwrap();
+    let file_name = file_path.file_name().unwrap().to_string_lossy();
 
-    // Skip the traits.rs file since it defines the trait
-    if file_path.file_name().unwrap() == "traits.rs" || file_path.file_name().unwrap() == "lib.rs" {
+    // Skip the traits.rs file since it defines the trait, but do check lib.rs for implementations
+    if file_name == "traits.rs" {
         return;
     }
 
-    // Look for module name
-    let mod_name = file_path.file_stem().unwrap().to_string_lossy().to_string();
+    // Look for module name - use empty string for lib.rs to create root-level paths
+    let mod_name = if file_name == "lib.rs" {
+        "".to_string()
+    } else {
+        file_path.file_stem().unwrap().to_string_lossy().to_string()
+    };
 
     // Check if the file implements Executable trait
     if content.contains("impl Executable for")
@@ -227,11 +246,15 @@ fn find_executable_types(
                     .unwrap_or_default()
                     .trim_matches(|c| c == '{' || c == ' ' || c == '\t');
 
+                // Create the fully qualified path
+                let full_path = if mod_name.is_empty() {
+                    struct_name.to_string()
+                } else {
+                    format!("{}::{}", mod_name, struct_name)
+                };
+
                 // Add the fully qualified name and crate
-                types.insert((
-                    format!("{}::{}", mod_name, struct_name),
-                    crate_name.to_string(),
-                ));
+                types.insert((full_path, crate_name.to_string()));
             }
         }
     }

@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["animals", "client", "dynamic", "programs/*", "scheduler", "tasks/*"]
+members = ["animals", "client", "dynamic", "dog", "programs/*", "scheduler", "tasks/*"]
 
 [workspace.package]
 version = "0.1.0"
@@ -17,6 +17,7 @@ typetag = "0.2.20"
 
 animals = { path = "./animals" }
 client = { path = "./client" }
+dog = { path = "./dog" }
 greeting = { path = "./programs/greeting" }
 verifier = { path = "./programs/verifier" }
 utils = { path = "./programs/utils" }
