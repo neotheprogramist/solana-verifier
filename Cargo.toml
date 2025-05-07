@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["client", "programs/*", "scheduler", "tasks/*"]
+members = ["client", "dynamic", "programs/*", "scheduler", "tasks/*"]
 
 [workspace.package]
 version = "0.1.0"
