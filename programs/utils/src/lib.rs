@@ -44,9 +44,9 @@ macro_rules! impl_type_identifiable {
             // Generate a compile-time constant value based on type name using FNV-1a hash
             // This is a non-cryptographic but better hash function that can be used in const contexts
             const TYPE_ID: u32 = {
-                // Create a hash from the type name at compile time
-                let name = stringify!($type);
-                let bytes = name.as_bytes();
+                // Create a hash from the fully qualified type name at compile time
+                let full_type_name = concat!(module_path!(), "::", stringify!($type));
+                let bytes = full_type_name.as_bytes();
                 let len = bytes.len();
 
                 // FNV-1a hash algorithm constants
