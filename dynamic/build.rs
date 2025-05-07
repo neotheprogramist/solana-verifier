@@ -181,7 +181,7 @@ fn scan_crate(_workspace_root: &Path, crate_path: &Path, types: &mut HashSet<(St
     let src_dir = crate_path.join("src");
     if src_dir.exists() && src_dir.is_dir() {
         // Add a rerun-if-changed directive for this crate
-        let rel_path = pathdiff::diff_paths(&src_dir, &env::current_dir().unwrap())
+        let rel_path = pathdiff::diff_paths(&src_dir, env::current_dir().unwrap())
             .unwrap_or_else(|| src_dir.clone());
         println!("cargo:rerun-if-changed={}", rel_path.display());
 
