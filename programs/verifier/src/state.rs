@@ -2,7 +2,7 @@ use utils::{AccountCast, BidirectionalStack};
 
 use crate::error::VerifierError;
 
-const CAPACITY: usize = 1024;
+const CAPACITY: usize = 16;
 const LENGTH_SIZE: usize = 2;
 
 /// Define the type of state stored in accounts
@@ -28,7 +28,7 @@ impl BidirectionalStack for BidirectionalStackAccount {
     type Error = VerifierError;
 
     fn push_front(&mut self, data: &[u8]) -> Result<(), Self::Error> {
-        for byte in data.iter().rev() {
+        for byte in data {
             self.buffer[self.front_index] = *byte;
             self.front_index = self.front_index.saturating_add(1);
         }
@@ -85,12 +85,15 @@ impl BidirectionalStack for BidirectionalStackAccount {
 
     fn borrow_front(&self) -> Result<&[u8], Self::Error> {
         let mut data_length = 0_usize;
-        for i in 0..LENGTH_SIZE {
+        for i in 1..=LENGTH_SIZE {
             let x: usize = self.buffer[self.front_index.saturating_sub(i)].into();
             data_length = (data_length << 8) | x;
         }
 
-        Ok(&self.buffer[self.front_index.saturating_sub(data_length)..self.front_index])
+        Ok(
+            &self.buffer[self.front_index.saturating_sub(data_length + LENGTH_SIZE)
+                ..self.front_index.saturating_sub(LENGTH_SIZE)],
+        )
     }
 
     fn borrow_back(&self) -> Result<&[u8], Self::Error> {
@@ -100,17 +103,22 @@ impl BidirectionalStack for BidirectionalStackAccount {
             data_length = (data_length << 8) | x;
         }
 
-        Ok(&self.buffer[self.back_index..self.back_index.saturating_add(data_length)])
+        println!("data_length: {}", data_length);
+        Ok(&self.buffer[self.back_index.saturating_add(LENGTH_SIZE)
+            ..self.back_index.saturating_add(LENGTH_SIZE + data_length)])
     }
 
     fn borrow_mut_front(&mut self) -> Result<&mut [u8], Self::Error> {
         let mut data_length = 0_usize;
-        for i in 0..LENGTH_SIZE {
+        for i in 1..=LENGTH_SIZE {
             let x: usize = self.buffer[self.front_index.saturating_sub(i)].into();
             data_length = (data_length << 8) | x;
         }
 
-        Ok(&mut self.buffer[self.front_index.saturating_sub(data_length)..self.front_index])
+        Ok(
+            &mut self.buffer[self.front_index.saturating_sub(data_length + LENGTH_SIZE)
+                ..self.front_index.saturating_sub(LENGTH_SIZE)],
+        )
     }
 
     fn borrow_mut_back(&mut self) -> Result<&mut [u8], Self::Error> {
@@ -120,6 +128,47 @@ impl BidirectionalStack for BidirectionalStackAccount {
             data_length = (data_length << 8) | x;
         }
 
-        Ok(&mut self.buffer[self.back_index..self.back_index.saturating_add(data_length)])
+        Ok(&mut self.buffer[self.back_index.saturating_add(LENGTH_SIZE)
+            ..self.back_index.saturating_add(LENGTH_SIZE + data_length)])
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::state::{BidirectionalStackAccount, CAPACITY};
+    use utils::BidirectionalStack;
+
+    #[test]
+    fn test_default() {
+        let stack = BidirectionalStackAccount::default();
+        assert_eq!(stack.front_index, 0);
+        assert_eq!(stack.back_index, CAPACITY);
+        assert_eq!(stack.buffer, [0; CAPACITY]);
+    }
+
+    #[test]
+    fn test_push_front_and_borrow_front() {
+        let mut stack = BidirectionalStackAccount::default();
+
+        // Push data to front
+        let data = [1, 2, 3, 4];
+        stack.push_front(&data).unwrap();
+
+        // Borrow and verify
+        let borrowed = stack.borrow_front().unwrap();
+        assert_eq!(borrowed, &[1, 2, 3, 4]); // Data is stored in reverse
+    }
+
+    #[test]
+    fn test_push_back_and_borrow_back() {
+        let mut stack = BidirectionalStackAccount::default();
+
+        // Push data to back
+        let data = [1, 2, 3, 4];
+        stack.push_back(&data).unwrap();
+
+        // Borrow and verify
+        let borrowed = stack.borrow_back().unwrap();
+        assert_eq!(borrowed, &[1, 2, 3, 4]); // Data is stored in reverse
     }
 }
