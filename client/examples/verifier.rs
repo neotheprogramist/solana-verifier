@@ -1,3 +1,4 @@
+use arithmetic::add::Add;
 use client::{
     initialize_client, interact_with_program_instructions, setup_account, setup_payer,
     setup_program, ClientError, Config,
@@ -7,7 +8,7 @@ use solana_sdk::{
     signer::Signer,
 };
 use std::{mem::size_of, path::Path};
-use utils::AccountCast;
+use utils::{AccountCast, BidirectionalStack};
 use verifier::{instruction::VerifierInstruction, state::BidirectionalStackAccount};
 
 /// Main entry point for the Solana program client
@@ -39,11 +40,31 @@ fn main() -> client::Result<()> {
         "verifier-account",
     )?;
 
-    let instructions = vec![Instruction::new_with_borsh(
-        program_id,
-        &VerifierInstruction::IncrementCounter,
-        vec![AccountMeta::new(verifier_account.pubkey(), false)],
-    )];
+    // Create an Add task with operands 42 and 58
+    let add_task = Add::new(42, 58);
+
+    // Serialize the task using CBOR
+    let mut task_data = Vec::new();
+    ciborium::ser::into_writer(&add_task, &mut task_data)
+        .map_err(|e| ClientError::SerializationError(format!("Failed to serialize task: {}", e)))?;
+
+    println!("Serialized task size: {} bytes", task_data.len());
+
+    // Create instructions
+    let instructions = vec![
+        // Push the Add task to the stack
+        Instruction::new_with_borsh(
+            program_id,
+            &VerifierInstruction::PushTask(task_data),
+            vec![AccountMeta::new(verifier_account.pubkey(), false)],
+        ),
+        // Execute the task
+        Instruction::new_with_borsh(
+            program_id,
+            &VerifierInstruction::Execute,
+            vec![AccountMeta::new(verifier_account.pubkey(), false)],
+        ),
+    ];
 
     // Interact with the program using the instructions directly
     interact_with_program_instructions(
@@ -55,12 +76,21 @@ fn main() -> client::Result<()> {
     )?;
 
     println!("Verifier program interaction completed successfully!");
+
+    // Get the account data to check the result
     let mut account_data = client
         .get_account_data(&verifier_account.pubkey())
         .map_err(ClientError::SolanaClientError)?;
     let stack_account = BidirectionalStackAccount::cast_mut(&mut account_data);
+
+    // Read the result from the front of the stack
+    let result: u128 = ciborium::de::from_reader(stack_account.borrow_front()).map_err(|e| {
+        ClientError::SerializationError(format!("Failed to deserialize result: {}", e))
+    })?;
+
     println!("Stack front index: {}", stack_account.front_index);
     println!("Stack back index: {}", stack_account.back_index);
+    println!("Result of 42 + 58 = {}", result);
 
     Ok(())
 }
