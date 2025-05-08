@@ -71,13 +71,6 @@ fn main() {
         .push_str("    let type_tag_bytes: [u8; 4] = [data[0], data[1], data[2], data[3]];\n");
     dispatch_code.push_str("    let type_tag = u32::from_le_bytes(type_tag_bytes);\n");
 
-    // Remove the task from the stack before processing
-    dispatch_code.push_str("    // Remove the task from the stack\n");
-    dispatch_code.push_str("    unsafe {\n");
-    dispatch_code.push_str("        let _task_data = (*stack_ptr).borrow_back().to_vec();\n");
-    dispatch_code.push_str("        (*stack_ptr).pop_back();\n");
-    dispatch_code.push_str("    }\n");
-
     dispatch_code.push_str("    match type_tag {\n");
 
     // Add a case for each type in all crates
@@ -91,7 +84,7 @@ fn main() {
                 "            // Create a new instance for the type\n"
             ));
             dispatch_code.push_str(&format!(
-                "            let mut {} = crate::{}::new(\"\");\n",
+                "            let {} = crate::{}::cast_mut(&mut data[4..]);\n",
                 struct_name.to_lowercase(),
                 type_name
             ));
@@ -110,38 +103,15 @@ fn main() {
                 crate_name, type_name
             ));
 
-            // Special case for types that need more than one parameter
-            if struct_name == "Bird" {
-                dispatch_code.push_str(&format!(
-                    "            // Create a new instance for the type\n"
-                ));
-                dispatch_code.push_str(&format!(
-                    "            let mut {} = {}::{}::new(\"\", false);\n",
-                    struct_name.to_lowercase(),
-                    crate_name,
-                    type_name
-                ));
-            } else if struct_name == "Frog" {
-                dispatch_code.push_str(&format!(
-                    "            // Create a new instance for the type\n"
-                ));
-                dispatch_code.push_str(&format!(
-                    "            let mut {} = {}::{}::new(\"\", false);\n",
-                    struct_name.to_lowercase(),
-                    crate_name,
-                    type_name
-                ));
-            } else {
-                dispatch_code.push_str(&format!(
-                    "            // Create a new instance for the type\n"
-                ));
-                dispatch_code.push_str(&format!(
-                    "            let mut {} = {}::{}::new(\"\");\n",
-                    struct_name.to_lowercase(),
-                    crate_name,
-                    type_name
-                ));
-            }
+            dispatch_code.push_str(&format!(
+                "            // Create a new instance for the type\n"
+            ));
+            dispatch_code.push_str(&format!(
+                "            let {} = {}::{}::cast_mut(&mut data[4..]);\n",
+                struct_name.to_lowercase(),
+                crate_name,
+                type_name
+            ));
 
             dispatch_code.push_str(&format!(
                 "            // Execute the task using unsafe to get around borrow checker\n"
