@@ -86,7 +86,9 @@ fn main() {
                 struct_name.to_lowercase(),
                 type_name
             ));
-            dispatch_code.push_str("            // Execute the task using unsafe to get around borrow checker\n");
+            dispatch_code.push_str(
+                "            // Execute the task using unsafe to get around borrow checker\n",
+            );
             dispatch_code.push_str(&format!(
                 "            unsafe {{\n                {}.execute(&mut *stack_ptr);\n            }}\n",
                 struct_name.to_lowercase()
@@ -107,7 +109,9 @@ fn main() {
                 type_name
             ));
 
-            dispatch_code.push_str("            // Execute the task using unsafe to get around borrow checker\n");
+            dispatch_code.push_str(
+                "            // Execute the task using unsafe to get around borrow checker\n",
+            );
             dispatch_code.push_str(&format!(
                 "            unsafe {{\n                {}.execute(&mut *stack_ptr);\n            }}\n",
                 struct_name.to_lowercase()
