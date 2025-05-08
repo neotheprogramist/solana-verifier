@@ -8,7 +8,14 @@ impl Scheduler for BidirectionalStackAccount {}
 
 impl BidirectionalStackAccount {
     pub fn execute(&mut self) {
-        execute(self);
-        self.pop_back();
+        let (tasks, is_finished) = execute(self);
+
+        if is_finished {
+            self.pop_back();
+        }
+
+        for task in tasks.iter().rev() {
+            let _ = self.push_front(task);
+        }
     }
 }

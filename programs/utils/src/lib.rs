@@ -90,7 +90,7 @@ pub trait Executable: Sized + TypeIdentifiable {
     /// The type tag is now automatically derived from TypeIdentifiable trait
     /// Using u32 instead of u8 for a much larger ID space
     const TYPE_TAG: u32 = Self::TYPE_ID;
-    fn execute<T: BidirectionalStack>(&mut self, stack: &mut T);
+    fn execute<T: BidirectionalStack>(&mut self, stack: &mut T) -> Vec<Vec<u8>>;
     fn is_finished(&mut self) -> bool {
         false
     }

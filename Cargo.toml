@@ -29,6 +29,6 @@ utils = { path = "./programs/utils" }
 
 scheduler = { path = "./scheduler" }
 
-add = { path = "./tasks/add" }
 arithmetic = { path = "./tasks/arithmetic" }
+example = { path = "./tasks/example" }
 stark = { path = "./tasks/stark" }

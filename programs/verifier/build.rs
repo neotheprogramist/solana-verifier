@@ -53,13 +53,15 @@ fn main() {
 
     // Generate the execute function
     dispatch_code
-        .push_str("pub fn execute(stack: &mut crate::state::BidirectionalStackAccount) {\n");
+        .push_str("pub fn execute(stack: &mut crate::state::BidirectionalStackAccount) -> (Vec<Vec<u8>>, bool) {\n");
     dispatch_code.push_str("    // Create a raw pointer to avoid multiple mutable borrow issues\n");
     dispatch_code
         .push_str("    let stack_ptr = stack as *mut crate::state::BidirectionalStackAccount;\n");
     dispatch_code.push_str("    \n");
     dispatch_code.push_str("    // Get the data from the back of the stack using unsafe\n");
     dispatch_code.push_str("    let data = unsafe { (*stack_ptr).borrow_mut_back() };\n");
+    dispatch_code.push_str("    let mut tasks = Vec::new();\n");
+    dispatch_code.push_str("    let mut is_finished = false;\n");
 
     // We need to ensure we have enough data (at least 4 bytes for u32)
     dispatch_code.push_str("    if data.len() < 4 {\n");
@@ -82,7 +84,7 @@ fn main() {
             dispatch_code.push_str(&format!("        crate::{}::TYPE_TAG => {{\n", type_name));
             dispatch_code.push_str("            // Create a new instance for the type\n");
             dispatch_code.push_str(&format!(
-                "            let {} = crate::{}::cast_mut(&mut data[4..]);\n",
+                "            let _{} = crate::{}::cast_mut(&mut data[4..]);\n",
                 struct_name.to_lowercase(),
                 type_name
             ));
@@ -90,20 +92,17 @@ fn main() {
                 "            // Execute the task using unsafe to get around borrow checker\n",
             );
             dispatch_code.push_str(&format!(
-                "            unsafe {{\n                {}.execute(&mut *stack_ptr);\n            }}\n",
-                struct_name.to_lowercase()
+                "            unsafe {{\n                let obj = crate::{}::cast_mut(&mut data[4..]);\n                let returned_tasks = obj.execute(&mut *stack_ptr);\n                tasks.extend(returned_tasks);\n                is_finished = obj.is_finished();\n            }}\n",
+                type_name
             ));
             dispatch_code.push_str("        },\n");
         } else {
             dispatch_code.push_str(&format!("        // TYPE_TAG from {} crate\n", crate_name));
-            dispatch_code.push_str(&format!(
-                "        {}::{}::TYPE_TAG => {{\n",
-                crate_name, type_name
-            ));
+            dispatch_code.push_str(&format!("        {}::{}::TYPE_TAG => {{\n", crate_name, type_name));
 
             dispatch_code.push_str("            // Create a new instance for the type\n");
             dispatch_code.push_str(&format!(
-                "            let {} = {}::{}::cast_mut(&mut data[4..]);\n",
+                "            let _{} = {}::{}::cast_mut(&mut data[4..]);\n",
                 struct_name.to_lowercase(),
                 crate_name,
                 type_name
@@ -113,8 +112,9 @@ fn main() {
                 "            // Execute the task using unsafe to get around borrow checker\n",
             );
             dispatch_code.push_str(&format!(
-                "            unsafe {{\n                {}.execute(&mut *stack_ptr);\n            }}\n",
-                struct_name.to_lowercase()
+                "            unsafe {{\n                let obj = {}::{}::cast_mut(&mut data[4..]);\n                let returned_tasks = obj.execute(&mut *stack_ptr);\n                tasks.extend(returned_tasks);\n                is_finished = obj.is_finished();\n            }}\n",
+                crate_name,
+                type_name
             ));
             dispatch_code.push_str("        },\n");
         }
@@ -125,6 +125,7 @@ fn main() {
     dispatch_code.push_str("            panic!(\"Unknown type tag: {}\", type_tag);\n");
     dispatch_code.push_str("        }\n");
     dispatch_code.push_str("    }\n");
+    dispatch_code.push_str("    (tasks, is_finished)\n");
     dispatch_code.push_str("}\n");
 
     // Write the generated code to a file

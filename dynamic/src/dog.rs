@@ -28,7 +28,8 @@ impl Dog {
 }
 
 impl Executable for Dog {
-    fn execute<T: BidirectionalStack>(&mut self, _stack: &mut T) {
+    fn execute<T: BidirectionalStack>(&mut self, _stack: &mut T) -> Vec<Vec<u8>> {
         println!("Woof! I'm {}.", self.get_name());
+        Vec::new()
     }
 }

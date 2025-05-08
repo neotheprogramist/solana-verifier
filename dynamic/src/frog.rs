@@ -33,7 +33,7 @@ impl Frog {
 
 impl Executable for Frog {
     // No need to specify TYPE_TAG, it's automatically derived from TypeIdentifiable
-    fn execute<T: BidirectionalStack>(&mut self, _stack: &mut T) {
+    fn execute<T: BidirectionalStack>(&mut self, _stack: &mut T) -> Vec<Vec<u8>> {
         if self.is_jumping {
             println!("Ribbit! I'm {} and I'm jumping!", self.get_name());
         } else {
@@ -44,5 +44,6 @@ impl Executable for Frog {
         }
         // Toggle jumping state each time it executes
         self.is_jumping = !self.is_jumping;
+        Vec::new()
     }
 }

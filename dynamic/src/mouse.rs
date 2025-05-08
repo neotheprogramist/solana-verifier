@@ -29,7 +29,8 @@ impl Mouse {
 
 impl Executable for Mouse {
     // No need to specify TYPE_TAG, it's automatically derived from TypeIdentifiable
-    fn execute<T: BidirectionalStack>(&mut self, _stack: &mut T) {
+    fn execute<T: BidirectionalStack>(&mut self, _stack: &mut T) -> Vec<Vec<u8>> {
         println!("Squeak! I'm {}.", self.get_name());
+        Vec::new()
     }
 }

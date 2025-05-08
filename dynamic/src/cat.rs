@@ -28,7 +28,8 @@ impl Cat {
 }
 
 impl Executable for Cat {
-    fn execute<T: BidirectionalStack>(&mut self, _stack: &mut T) {
+    fn execute<T: BidirectionalStack>(&mut self, _stack: &mut T) -> Vec<Vec<u8>> {
         println!("Meow! I am {}.", self.get_color());
+        Vec::new()
     }
 }

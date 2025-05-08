@@ -33,7 +33,7 @@ impl Bird {
 
 impl Executable for Bird {
     // No need to specify TYPE_TAG, it's automatically derived from TypeIdentifiable
-    fn execute<T: BidirectionalStack>(&mut self, _stack: &mut T) {
+    fn execute<T: BidirectionalStack>(&mut self, _stack: &mut T) -> Vec<Vec<u8>> {
         if self.is_flying {
             println!("Tweet! I'm a {} flying high!", self.get_species());
         } else {
@@ -41,5 +41,6 @@ impl Executable for Bird {
         }
         // Toggle flying state each time it executes
         self.is_flying = !self.is_flying;
+        Vec::new()
     }
 }
