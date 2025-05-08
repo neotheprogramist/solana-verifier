@@ -1,4 +1,4 @@
-use utils::impl_type_identifiable;
+use utils::{impl_type_identifiable, BidirectionalStack};
 use utils::{Executable, TypeIdentifiable};
 
 #[repr(C)]
@@ -29,7 +29,7 @@ impl Mouse {
 
 impl Executable for Mouse {
     // No need to specify TYPE_TAG, it's automatically derived from TypeIdentifiable
-    fn execute(&mut self) {
+    fn execute<T: BidirectionalStack>(&mut self, _stack: &mut T) {
         println!("Squeak! I'm {}.", self.get_name());
     }
 }

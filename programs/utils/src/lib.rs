@@ -30,6 +30,24 @@ pub trait BidirectionalStack {
     fn is_empty_back(&self) -> bool;
 }
 
+pub trait Scheduler: BidirectionalStack {
+    fn push_task<T: Executable>(&mut self, task: T) {
+        let mut serialized = Vec::new();
+        serialized.extend_from_slice(&T::TYPE_TAG.to_le_bytes());
+        serialized.extend_from_slice(task.as_bytes());
+        self.push_back(&serialized).unwrap();
+    }
+    fn push_data(&mut self, data: &[u8]) {
+        self.push_front(data).unwrap();
+    }
+    fn pop_task(&mut self) {
+        self.pop_back();
+    }
+    fn pop_data(&mut self) {
+        self.pop_front();
+    }
+}
+
 /// Trait for providing automatic type identification with cryptographic hashing
 pub trait TypeIdentifiable {
     /// Returns a unique type ID based on the type name using a cryptographic hash
@@ -72,7 +90,7 @@ pub trait Executable: Sized + TypeIdentifiable {
     /// The type tag is now automatically derived from TypeIdentifiable trait
     /// Using u32 instead of u8 for a much larger ID space
     const TYPE_TAG: u32 = Self::TYPE_ID;
-    fn execute(&mut self);
+    fn execute<T: BidirectionalStack>(&mut self, stack: &mut T);
     fn is_finished(&mut self) -> bool {
         false
     }

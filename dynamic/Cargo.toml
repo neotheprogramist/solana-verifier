@@ -4,10 +4,4 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
-animals.workspace = true
-dog.workspace = true
 utils.workspace = true
-verifier.workspace = true
-
-[build-dependencies]
-pathdiff = "0.2.1"

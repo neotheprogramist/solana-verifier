@@ -1,6 +1,12 @@
 [workspace]
 resolver = "2"
-members = ["animals", "client", "dynamic", "dog", "programs/*", "scheduler", "tasks/*"]
+members = [
+    "client",
+    "dynamic",
+    "programs/*",
+    "scheduler",
+    "tasks/*",
+]
 
 [workspace.package]
 version = "0.1.0"
@@ -15,14 +21,14 @@ solana-program = "2.2.1"
 thiserror = "2.0.12"
 typetag = "0.2.20"
 
-animals = { path = "./animals" }
 client = { path = "./client" }
-dog = { path = "./dog" }
+dynamic = { path = "./dynamic" }
 greeting = { path = "./programs/greeting" }
 verifier = { path = "./programs/verifier" }
 utils = { path = "./programs/utils" }
 
 scheduler = { path = "./scheduler" }
 
+add = { path = "./tasks/add" }
 arithmetic = { path = "./tasks/arithmetic" }
 stark = { path = "./tasks/stark" }

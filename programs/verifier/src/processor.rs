@@ -14,23 +14,6 @@ use crate::{instruction::VerifierInstruction, state::BidirectionalStackAccount};
 pub struct Processor;
 
 impl Processor {
-    /// Process the increment counter instruction
-    pub fn process_increment_counter(accounts: &[AccountInfo]) -> ProgramResult {
-        msg!("Processing IncrementCounter instruction");
-
-        // Get the account to increment counter
-        let accounts_iter = &mut accounts.iter();
-        let account = next_account_info(accounts_iter)?;
-
-        // Increment and store the number of times the account has been greeted
-        let mut data = account.try_borrow_mut_data()?;
-        let stack_account = BidirectionalStackAccount::cast_mut(*data);
-        stack_account.front_index += 1;
-        stack_account.back_index += 2;
-
-        Ok(())
-    }
-
     /// Process the push task instruction
     pub fn process_push_task(accounts: &[AccountInfo], task_data: Vec<u8>) -> ProgramResult {
         msg!("Processing PushTask instruction");
@@ -66,10 +49,7 @@ impl Processor {
         let stack_account = BidirectionalStackAccount::cast_mut(*data);
 
         // Execute the task
-        stack_account.execute().map_err(|e| {
-            msg!("Error executing task: {:?}", e);
-            ProgramError::InvalidInstructionData
-        })?;
+        stack_account.execute();
         msg!("Task executed successfully");
 
         Ok(())
@@ -89,7 +69,6 @@ pub fn process_instruction(
 
     // Process the instruction
     match instruction {
-        VerifierInstruction::IncrementCounter => Processor::process_increment_counter(accounts),
         VerifierInstruction::PushTask(task_data) => {
             Processor::process_push_task(accounts, task_data)
         }

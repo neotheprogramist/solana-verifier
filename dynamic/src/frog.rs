@@ -1,4 +1,4 @@
-use utils::impl_type_identifiable;
+use utils::{impl_type_identifiable, BidirectionalStack};
 use utils::{Executable, TypeIdentifiable};
 
 #[repr(C)]
@@ -33,7 +33,7 @@ impl Frog {
 
 impl Executable for Frog {
     // No need to specify TYPE_TAG, it's automatically derived from TypeIdentifiable
-    fn execute(&mut self) {
+    fn execute<T: BidirectionalStack>(&mut self, _stack: &mut T) {
         if self.is_jumping {
             println!("Ribbit! I'm {} and I'm jumping!", self.get_name());
         } else {

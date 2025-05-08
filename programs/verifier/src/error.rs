@@ -35,14 +35,6 @@ pub enum VerifierError {
     #[error("Stack capacity exceeded")]
     StackCapacity,
 
-    /// Error during serialization.
-    #[error(transparent)]
-    Serialization(#[from] ciborium::ser::Error<io::Error>),
-
-    /// Error during deserialization.
-    #[error(transparent)]
-    Deserialization(#[from] ciborium::de::Error<io::Error>),
-
     /// The task data length is invalid.
     #[error("Invalid task length - task data exceeds maximum allowed size")]
     InvalidTaskLength,

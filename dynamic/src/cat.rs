@@ -1,4 +1,4 @@
-use utils::impl_type_identifiable;
+use utils::{impl_type_identifiable, BidirectionalStack};
 use utils::{Executable, TypeIdentifiable};
 
 #[repr(C)]
@@ -28,7 +28,7 @@ impl Cat {
 }
 
 impl Executable for Cat {
-    fn execute(&mut self) {
+    fn execute<T: BidirectionalStack>(&mut self, _stack: &mut T) {
         println!("Meow! I am {}.", self.get_color());
     }
 }
