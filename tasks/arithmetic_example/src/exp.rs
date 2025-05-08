@@ -13,7 +13,7 @@ impl Exp {
     pub fn new(base: u128, exponent: u32) -> Self {
         Self { base, exponent }
     }
-    
+
     fn compute(&self) -> u128 {
         // Simple exponentiation with overflow protection
         let mut result: u128 = 1;
@@ -27,16 +27,19 @@ impl Exp {
 impl Executable for Exp {
     fn execute<T: BidirectionalStack>(&mut self, stack: &mut T) -> Vec<Vec<u8>> {
         let result = self.compute();
-        println!("Exponentiation: {}^{} = {}", self.base, self.exponent, result);
-        
+        println!(
+            "Exponentiation: {}^{} = {}",
+            self.base, self.exponent, result
+        );
+
         // Convert result to bytes and push to stack
         let result_bytes = result.to_le_bytes().to_vec();
         stack.push_front(&result_bytes).unwrap();
-        
+
         Vec::new()
     }
-    
+
     fn is_finished(&mut self) -> bool {
         true
     }
-} 
+}

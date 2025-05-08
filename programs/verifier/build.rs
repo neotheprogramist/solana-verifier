@@ -98,7 +98,10 @@ fn main() {
             dispatch_code.push_str("        },\n");
         } else {
             dispatch_code.push_str(&format!("        // TYPE_TAG from {} crate\n", crate_name));
-            dispatch_code.push_str(&format!("        {}::{}::TYPE_TAG => {{\n", crate_name, type_name));
+            dispatch_code.push_str(&format!(
+                "        {}::{}::TYPE_TAG => {{\n",
+                crate_name, type_name
+            ));
 
             dispatch_code.push_str("            // Create a new instance for the type\n");
             dispatch_code.push_str(&format!(

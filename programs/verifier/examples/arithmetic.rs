@@ -8,10 +8,22 @@ fn main() {
 
     // Print a list of all available arithmetic operations
     println!("Available arithmetic operations:");
-    println!("1. Add (TYPE_TAG: {}) from arithmetic_example crate", add::Add::TYPE_TAG);
-    println!("2. Multiply (TYPE_TAG: {}) from arithmetic_example crate", mul::Mul::TYPE_TAG);
-    println!("3. Exponentiation (TYPE_TAG: {}) from arithmetic_example crate", exp::Exp::TYPE_TAG);
-    println!("4. Fibonacci (TYPE_TAG: {}) from arithmetic_example crate", fib::Fibonacci::TYPE_TAG);
+    println!(
+        "1. Add (TYPE_TAG: {}) from arithmetic_example crate",
+        add::Add::TYPE_TAG
+    );
+    println!(
+        "2. Multiply (TYPE_TAG: {}) from arithmetic_example crate",
+        mul::Mul::TYPE_TAG
+    );
+    println!(
+        "3. Exponentiation (TYPE_TAG: {}) from arithmetic_example crate",
+        exp::Exp::TYPE_TAG
+    );
+    println!(
+        "4. Fibonacci (TYPE_TAG: {}) from arithmetic_example crate",
+        fib::Fibonacci::TYPE_TAG
+    );
 
     // Create a new stack for testing
     let mut stack = BidirectionalStackAccount::default();
@@ -29,4 +41,4 @@ fn main() {
     while !stack.is_empty_back() {
         stack.execute();
     }
-} 
+}
