@@ -30,5 +30,6 @@ utils = { path = "./programs/utils" }
 scheduler = { path = "./scheduler" }
 
 arithmetic = { path = "./tasks/arithmetic" }
+arithmetic_example = { path = "./tasks/arithmetic_example" }
 example = { path = "./tasks/example" }
 stark = { path = "./tasks/stark" }

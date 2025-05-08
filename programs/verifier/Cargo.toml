@@ -16,6 +16,8 @@ thiserror.workspace = true
 
 dynamic.workspace = true
 utils.workspace = true
+arithmetic.workspace = true
+arithmetic_example.workspace = true
 
 [build-dependencies]
 pathdiff = "0.2.1"
