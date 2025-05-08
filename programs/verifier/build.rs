@@ -80,17 +80,13 @@ fn main() {
         if crate_name == "crate" {
             dispatch_code.push_str(&format!("        // TYPE_TAG from {} crate\n", crate_name));
             dispatch_code.push_str(&format!("        crate::{}::TYPE_TAG => {{\n", type_name));
-            dispatch_code.push_str(&format!(
-                "            // Create a new instance for the type\n"
-            ));
+            dispatch_code.push_str("            // Create a new instance for the type\n");
             dispatch_code.push_str(&format!(
                 "            let {} = crate::{}::cast_mut(&mut data[4..]);\n",
                 struct_name.to_lowercase(),
                 type_name
             ));
-            dispatch_code.push_str(&format!(
-                "            // Execute the task using unsafe to get around borrow checker\n"
-            ));
+            dispatch_code.push_str("            // Execute the task using unsafe to get around borrow checker\n");
             dispatch_code.push_str(&format!(
                 "            unsafe {{\n                {}.execute(&mut *stack_ptr);\n            }}\n",
                 struct_name.to_lowercase()
@@ -103,9 +99,7 @@ fn main() {
                 crate_name, type_name
             ));
 
-            dispatch_code.push_str(&format!(
-                "            // Create a new instance for the type\n"
-            ));
+            dispatch_code.push_str("            // Create a new instance for the type\n");
             dispatch_code.push_str(&format!(
                 "            let {} = {}::{}::cast_mut(&mut data[4..]);\n",
                 struct_name.to_lowercase(),
@@ -113,9 +107,7 @@ fn main() {
                 type_name
             ));
 
-            dispatch_code.push_str(&format!(
-                "            // Execute the task using unsafe to get around borrow checker\n"
-            ));
+            dispatch_code.push_str("            // Execute the task using unsafe to get around borrow checker\n");
             dispatch_code.push_str(&format!(
                 "            unsafe {{\n                {}.execute(&mut *stack_ptr);\n            }}\n",
                 struct_name.to_lowercase()
