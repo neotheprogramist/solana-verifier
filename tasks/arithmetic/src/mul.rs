@@ -30,6 +30,10 @@ impl SchedulerTask for Mul {
             ])
         }
     }
+
+    fn is_finished(&mut self) -> bool {
+        true
+    }
 }
 
 #[derive(Debug, Default, Serialize, Deserialize)]
@@ -66,8 +70,8 @@ impl SchedulerTask for MulInternal {
         }
     }
 
-    fn push_self(&mut self) -> bool {
-        self.counter < self.y
+    fn is_finished(&mut self) -> bool {
+        self.counter >= self.y
     }
 }
 

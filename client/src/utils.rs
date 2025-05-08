@@ -1,4 +1,5 @@
-use borsh::BorshDeserialize;
+#![allow(deprecated)]
+
 use serde_json;
 use solana_client::rpc_client::RpcClient;
 use solana_program::{
@@ -15,7 +16,6 @@ use solana_sdk::{
 use std::{fs, path::Path, thread::sleep};
 
 use crate::{ClientError, Config, Result};
-use verifier::state::GreetingAccount;
 
 /// Initialize the Solana RPC client and verify connection
 pub fn initialize_client(config: &Config) -> Result<RpcClient> {
@@ -47,14 +47,22 @@ pub fn initialize_client(config: &Config) -> Result<RpcClient> {
 
 /// Setup the payer account, creating a new one and funding it if necessary
 pub fn setup_payer(client: &RpcClient, config: &Config) -> Result<Keypair> {
-    match read_keypair_file(&config.payer_keypair_path) {
+    let payer_keypair_path = config.keypairs_dir.join("payer-keypair.json");
+
+    match read_keypair_file(&payer_keypair_path) {
         Ok(keypair) => {
             println!("Using existing payer keypair");
             Ok(keypair)
         }
         Err(_) => {
             let keypair = Keypair::new();
-            write_keypair_file(&keypair, &config.payer_keypair_path)?;
+
+            // Ensure keypairs directory exists
+            if !config.keypairs_dir.exists() {
+                fs::create_dir_all(&config.keypairs_dir).map_err(ClientError::IoError)?;
+            }
+
+            write_keypair_file(&keypair, &payer_keypair_path)?;
 
             println!("Created new payer keypair: {}", keypair.pubkey());
 
@@ -156,22 +164,33 @@ pub fn setup_program(
     client: &RpcClient,
     payer: &Keypair,
     config: &Config,
+    program_path: &Path,
 ) -> Result<solana_sdk::pubkey::Pubkey> {
     // Read the program binary
-    if !config.program_path.exists() {
+    if !program_path.exists() {
         return Err(ClientError::ProgramNotFound(
-            format!("Program binary not found at {}. Please build the program first with 'cargo build-sbf' in the verifier directory.", 
-                config.program_path.display()
+            format!("Program binary not found at {}. Please build the program first with 'cargo build-sbf' in the program directory.", 
+                program_path.display()
             )
         ));
     }
 
-    let program_data = fs::read(&config.program_path).map_err(ClientError::IoError)?;
+    let program_data = fs::read(program_path).map_err(ClientError::IoError)?;
     println!("Program binary size: {} bytes", program_data.len());
 
+    // Extract program name from path for the keypair filename
+    let program_name = program_path
+        .file_stem()
+        .and_then(|stem| stem.to_str())
+        .unwrap_or("program");
+
+    let program_keypair_path = config
+        .keypairs_dir
+        .join(format!("{}-keypair.json", program_name));
+
     // Deploy the program or use existing deployment
-    if config.program_keypair_path.exists() {
-        let program_keypair = read_keypair_file(&config.program_keypair_path)?;
+    if program_keypair_path.exists() {
+        let program_keypair = read_keypair_file(&program_keypair_path)?;
         let program_id = program_keypair.pubkey();
 
         // Check if the program is already deployed
@@ -195,41 +214,48 @@ pub fn setup_program(
 
         deploy_program(client, payer, &program_keypair, &program_data, config)?;
 
-        write_keypair_file(&program_keypair, &config.program_keypair_path)?;
+        // Ensure keypairs directory exists
+        if !config.keypairs_dir.exists() {
+            fs::create_dir_all(&config.keypairs_dir).map_err(ClientError::IoError)?;
+        }
+
+        write_keypair_file(&program_keypair, &program_keypair_path)?;
 
         println!("Program deployed successfully!");
         Ok(program_id)
     }
 }
 
-/// Setup the greeting account - either use existing or create a new one
-pub fn setup_greeting_account(
+/// Setup a program account - either use existing or create a new one
+pub fn setup_account(
     client: &RpcClient,
     payer: &Keypair,
     program_id: &solana_sdk::pubkey::Pubkey,
     config: &Config,
+    space: usize,
+    account_name: &str,
 ) -> Result<Keypair> {
-    if config.greeting_keypair_path.exists() {
-        let greeting_keypair = read_keypair_file(&config.greeting_keypair_path)?;
-        println!(
-            "Using existing greeting account: {}",
-            greeting_keypair.pubkey()
-        );
-        Ok(greeting_keypair)
-    } else {
-        let greeting_keypair = Keypair::new();
-        println!("Creating greeting account: {}", greeting_keypair.pubkey());
+    let account_keypair_path = config
+        .keypairs_dir
+        .join(format!("{}-keypair.json", account_name));
 
-        // Calculate the space needed for the greeting account
-        let space = std::mem::size_of::<GreetingAccount>();
+    if account_keypair_path.exists() {
+        let account_keypair = read_keypair_file(&account_keypair_path)?;
+        println!("Using existing account: {}", account_keypair.pubkey());
+        Ok(account_keypair)
+    } else {
+        let account_keypair = Keypair::new();
+        println!("Creating account: {}", account_keypair.pubkey());
+
+        // Calculate the space needed for the account
         let rent = client
             .get_minimum_balance_for_rent_exemption(space)
             .map_err(ClientError::SolanaClientError)?;
 
-        // Create a transaction to create the greeting account
+        // Create a transaction to create the account
         let create_account_ix = system_instruction::create_account(
             &payer.pubkey(),
-            &greeting_keypair.pubkey(),
+            &account_keypair.pubkey(),
             rent,
             space as u64,
             program_id,
@@ -242,7 +268,7 @@ pub fn setup_greeting_account(
         let create_tx = Transaction::new_signed_with_payer(
             &[create_account_ix],
             Some(&payer.pubkey()),
-            &[payer, &greeting_keypair],
+            &[payer, &account_keypair],
             blockhash,
         );
 
@@ -251,32 +277,34 @@ pub fn setup_greeting_account(
             .send_and_confirm_transaction(&create_tx)
             .map_err(|e| {
                 ClientError::TransactionError(format!(
-                    "Failed to send and confirm greeting account creation transaction: {}",
+                    "Failed to send and confirm account creation transaction: {}",
                     e
                 ))
             })?;
-        println!("Created greeting account: {}", create_sig);
+        println!("Created account: {}", create_sig);
+
+        // Ensure keypairs directory exists
+        if !config.keypairs_dir.exists() {
+            fs::create_dir_all(&config.keypairs_dir).map_err(ClientError::IoError)?;
+        }
 
         // Save the keypair for future use
-        write_keypair_file(&greeting_keypair, &config.greeting_keypair_path)?;
+        write_keypair_file(&account_keypair, &account_keypair_path)?;
 
-        Ok(greeting_keypair)
+        Ok(account_keypair)
     }
 }
 
-/// Interact with the deployed program
-pub fn interact_with_program(
+/// Send an instruction to a program
+pub fn send_instruction(
     client: &RpcClient,
     payer: &Keypair,
     program_id: &solana_sdk::pubkey::Pubkey,
-    greeting_account: &Keypair,
-) -> Result<()> {
+    accounts: Vec<AccountMeta>,
+    instruction_data: &[u8],
+) -> Result<solana_sdk::signature::Signature> {
     // Create an instruction to call the program
-    let instruction = Instruction::new_with_bytes(
-        *program_id,
-        &[],
-        vec![AccountMeta::new(greeting_account.pubkey(), false)],
-    );
+    let instruction = Instruction::new_with_bytes(*program_id, instruction_data, accounts);
 
     // Get latest blockhash
     let blockhash = client
@@ -295,20 +323,53 @@ pub fn interact_with_program(
     let signature = client
         .send_and_confirm_transaction(&transaction)
         .map_err(|e| {
-            ClientError::TransactionError(format!(
-                "Failed to send and confirm program interaction transaction: {}",
-                e
-            ))
+            ClientError::TransactionError(format!("Failed to send and confirm transaction: {}", e))
         })?;
     println!("Transaction signature: {}", signature);
 
-    // Read the greeting account data
-    let account_data = client
-        .get_account_data(&greeting_account.pubkey())
+    Ok(signature)
+}
+
+/// Function to interact with a program using a vector of instructions
+///
+/// This function allows direct interaction with a Solana program by providing a vector of
+/// instructions to execute in a single transaction. Unlike `interact_with_program`, this function
+/// doesn't require implementing the `ProgramInteraction` trait, making it more flexible for
+/// simple use cases.
+///
+/// # Parameters
+/// * `client` - The RPC client to use for the transaction
+/// * `payer` - The keypair that will pay for the transaction
+/// * `_program_id` - The program ID (kept for API consistency but not used directly)
+/// * `_account` - The account to interact with (kept for API consistency but not used directly)
+/// * `instructions` - The vector of instructions to include in the transaction
+pub fn interact_with_program_instructions(
+    client: &RpcClient,
+    payer: &Keypair,
+    _program_id: &solana_sdk::pubkey::Pubkey, // Unused but kept for API consistency
+    _account: &Keypair,                       // Unused but kept for API consistency
+    instructions: &[Instruction],
+) -> Result<()> {
+    // Get latest blockhash
+    let blockhash = client
+        .get_latest_blockhash()
         .map_err(ClientError::SolanaClientError)?;
-    let greeting_account_data = GreetingAccount::try_from_slice(&account_data)
-        .map_err(|e| ClientError::BorshError(e.to_string()))?;
-    println!("Greeting counter: {}", greeting_account_data.counter);
+
+    // Create a transaction with the instructions
+    let transaction = Transaction::new_signed_with_payer(
+        instructions,
+        Some(&payer.pubkey()),
+        &[payer],
+        blockhash,
+    );
+
+    // Send and confirm the transaction
+    let signature = client
+        .send_and_confirm_transaction(&transaction)
+        .map_err(|e| {
+            ClientError::TransactionError(format!("Failed to send and confirm transaction: {}", e))
+        })?;
+    println!("Transaction signature: {}", signature);
 
     Ok(())
 }
@@ -445,25 +506,95 @@ pub fn write_program_to_buffer(
             blockhash,
         );
 
-        let signature = client
-            .send_and_confirm_transaction(&write_tx)
-            .map_err(|e| {
-                ClientError::TransactionError(format!(
-                    "Failed to write chunk at offset {}: {}",
-                    offset, e
-                ))
-            })?;
-        println!(
-            "Wrote chunk at offset {}/{}: tx signature: {}",
-            offset,
-            program_data.len(),
-            signature
-        );
+        // Send transaction without waiting for confirmation
+        client.send_transaction(&write_tx).map_err(|e| {
+            ClientError::TransactionError(format!(
+                "Failed to send chunk at offset {}: {}",
+                offset, e
+            ))
+        })?;
 
         offset = chunk_end;
     }
 
+    // Now verify the buffer data
+    println!("Verifying buffer data...");
+
+    // Retry verification with exponential backoff
+    let mut retry_count = 0;
+    let max_retries = config.transaction_retry_count;
+    let mut verified = false;
+
+    while !verified && retry_count < max_retries {
+        if retry_count > 0 {
+            println!(
+                "Retrying verification attempt {}/{}...",
+                retry_count + 1,
+                max_retries
+            );
+            sleep(config.retry_sleep_duration());
+        }
+
+        match verify_buffer_data(client, buffer_keypair, program_data) {
+            Ok(true) => {
+                verified = true;
+                println!("Buffer data verified successfully!");
+            }
+            Ok(false) => {
+                retry_count += 1;
+                println!("Buffer data verification failed, data mismatch.");
+            }
+            Err(e) => {
+                retry_count += 1;
+                println!("Buffer data verification error: {}", e);
+            }
+        }
+    }
+
+    if !verified {
+        return Err(ClientError::DeploymentError(
+            "Failed to verify buffer data after maximum retries".to_string(),
+        ));
+    }
+
     Ok(())
+}
+
+/// Verify that the buffer account contains the expected program data
+fn verify_buffer_data(
+    client: &RpcClient,
+    buffer_keypair: &Keypair,
+    expected_data: &[u8],
+) -> Result<bool> {
+    // Get the buffer account data
+    let account_data = client
+        .get_account_data(&buffer_keypair.pubkey())
+        .map_err(ClientError::SolanaClientError)?;
+
+    // The buffer account data starts with metadata (UpgradeableLoaderState::Buffer), followed by the program data
+    // The size of the metadata is defined by size_of_buffer_metadata()
+    let data_offset = UpgradeableLoaderState::size_of_buffer_metadata();
+
+    // Make sure the account data is long enough
+    if account_data.len() < data_offset + expected_data.len() {
+        println!(
+            "Buffer account data too short: {} vs expected at least {}",
+            account_data.len(),
+            data_offset + expected_data.len()
+        );
+        return Ok(false);
+    }
+
+    // Extract just the program data portion
+    let buffer_data = &account_data[data_offset..data_offset + expected_data.len()];
+
+    // Verify the content matches
+    if buffer_data != expected_data {
+        println!("Buffer data content mismatch");
+        return Ok(false);
+    }
+
+    Ok(true)
 }
 
 /// Read a keypair from file with improved error handling

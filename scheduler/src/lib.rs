@@ -19,9 +19,9 @@ pub mod stack;
 // Re-export commonly used types
 pub use error::{Error, Result};
 
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde::{de::DeserializeOwned, Serialize};
 use stack::BidirectionalStack;
-use std::io::Cursor;
+use utils::AccountCast;
 
 /// Trait for tasks that can be executed by the scheduler.
 ///
@@ -33,7 +33,7 @@ pub trait SchedulerTask: Send + Sync {
     /// The scheduler is provided for pushing/popping data during execution.
     fn execute(&mut self, scheduler: &mut Scheduler) -> Result<Vec<Box<dyn SchedulerTask>>>;
 
-    fn push_self(&mut self) -> bool {
+    fn is_finished(&mut self) -> bool {
         false
     }
 }
@@ -41,12 +41,14 @@ pub trait SchedulerTask: Send + Sync {
 /// Scheduler that manages task execution and data flow.
 ///
 /// Uses a bidirectional stack to store tasks and data.
-#[derive(Debug, Default, Deserialize, Serialize)]
+#[derive(Debug, Default)]
 pub struct Scheduler {
     /// The stack used for storing tasks and data.
     /// Tasks are stored at the back, data at the front.
-    stack: BidirectionalStack<65536, 2>,
+    stack: BidirectionalStack<1024, 2>,
 }
+
+impl AccountCast for Scheduler {}
 
 impl Scheduler {
     /// Creates a new empty scheduler.
@@ -56,7 +58,7 @@ impl Scheduler {
 
     /// Pushes a task onto the scheduler's task stack.
     pub fn push_task(&mut self, task: Box<dyn SchedulerTask>) -> Result<()> {
-        let mut buffer = Vec::new();
+        let mut buffer = Vec::with_capacity(128);
         ciborium::ser::into_writer(&task, &mut buffer).map_err(Error::Serialization)?;
 
         self.stack
@@ -68,7 +70,7 @@ impl Scheduler {
 
     /// Pushes data onto the scheduler's data stack.
     pub fn push_data<T: Serialize>(&mut self, data: &T) -> Result<()> {
-        let mut buffer = Vec::new();
+        let mut buffer = Vec::with_capacity(128);
         ciborium::ser::into_writer(data, &mut buffer).map_err(Error::Serialization)?;
 
         self.stack
@@ -81,21 +83,13 @@ impl Scheduler {
     /// Pops a task from the scheduler's task stack.
     pub fn pop_task(&mut self) -> Result<Box<dyn SchedulerTask>> {
         let data = self.stack.pop_back()?;
-
-        let mut cursor = Cursor::new(&data);
-        let result = ciborium::de::from_reader(&mut cursor).map_err(Error::Deserialization)?;
-
-        Ok(result)
+        ciborium::de::from_reader(data.as_slice()).map_err(Error::Deserialization)
     }
 
     /// Pops data from the scheduler's data stack.
     pub fn pop_data<T: DeserializeOwned>(&mut self) -> Result<T> {
         let data = self.stack.pop_front()?;
-
-        let mut cursor = Cursor::new(&data);
-        let result = ciborium::de::from_reader(&mut cursor).map_err(Error::Deserialization)?;
-
-        Ok(result)
+        ciborium::de::from_reader(data.as_slice()).map_err(Error::Deserialization)
     }
 
     /// Executes the next task in the scheduler.
@@ -108,7 +102,7 @@ impl Scheduler {
             .execute(self)
             .map_err(|e| Error::Execution(format!("Task execution failed: {}", e)))?;
 
-        if task.push_self() {
+        if !task.is_finished() {
             self.push_task(task)?;
         }
 

@@ -45,6 +45,10 @@ impl SchedulerTask for Fib {
             ]),
         }
     }
+
+    fn is_finished(&mut self) -> bool {
+        true
+    }
 }
 
 /// A helper task that combines the results of two Fibonacci subtasks
@@ -69,6 +73,10 @@ impl SchedulerTask for FibCombiner {
 
         // Schedule the addition task and the formatter
         Ok(vec![Box::new(Add::new(output1, output2))])
+    }
+
+    fn is_finished(&mut self) -> bool {
+        true
     }
 }
 
@@ -108,7 +116,7 @@ mod tests {
     #[test]
     fn test_fib_sequence() {
         // Test first few Fibonacci numbers
-        let expected = vec![0, 1, 1, 2, 3, 5, 8, 13, 21, 34];
+        let expected = [0, 1, 1, 2, 3, 5, 8, 13, 21, 34];
 
         for (n, expected_value) in expected.iter().enumerate() {
             let mut scheduler = Scheduler::default();

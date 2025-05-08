@@ -4,7 +4,7 @@ use std::time::Duration;
 
 /// Solana program client configuration
 #[derive(Parser, Debug)]
-#[clap(author, version, about = "Solana Verifier Client")]
+#[clap(author, version, about = "Solana Program Client")]
 pub struct Config {
     /// RPC URL for the Solana cluster
     #[clap(long, default_value = "http://localhost:8899")]
@@ -14,24 +14,12 @@ pub struct Config {
     #[clap(long, default_value = "30")]
     pub rpc_timeout_secs: u64,
 
-    /// Path to the program binary
-    #[clap(long, default_value = "target/deploy/verifier.so")]
-    pub program_path: PathBuf,
-
-    /// Path to the payer keypair file
-    #[clap(long, default_value = "payer-keypair.json")]
-    pub payer_keypair_path: PathBuf,
-
-    /// Path to the program keypair file
-    #[clap(long, default_value = "program-keypair.json")]
-    pub program_keypair_path: PathBuf,
-
-    /// Path to the greeting account keypair file
-    #[clap(long, default_value = "greeting-keypair.json")]
-    pub greeting_keypair_path: PathBuf,
+    /// Directory for keypair files
+    #[clap(long, default_value = "keypairs")]
+    pub keypairs_dir: PathBuf,
 
     /// Amount of SOL to airdrop initially
-    #[clap(long, default_value = "2000000000")]
+    #[clap(long, default_value = "200000000000")]
     pub airdrop_amount: u64,
 
     /// Multiplier for additional airdrop

@@ -39,6 +39,10 @@ impl SchedulerTask for Add {
         // No follow-up tasks
         Ok(vec![])
     }
+
+    fn is_finished(&mut self) -> bool {
+        true
+    }
 }
 
 #[cfg(test)]

@@ -1,0 +1,21 @@
+[package]
+name = "verifier"
+version.workspace = true
+edition.workspace = true
+
+[lib]
+crate-type = ["cdylib", "lib"]
+
+[features]
+no-entrypoint = []
+
+[dependencies]
+borsh.workspace = true
+solana-program.workspace = true
+thiserror.workspace = true
+
+dynamic.workspace = true
+utils.workspace = true
+
+[build-dependencies]
+pathdiff = "0.2.1"

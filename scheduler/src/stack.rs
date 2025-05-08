@@ -1,8 +1,7 @@
 use std::num::TryFromIntError;
 
-use serde::{Deserialize, Serialize};
-use serde_with::{serde_as, Bytes};
 use thiserror::Error;
+use utils::AccountCast;
 
 #[derive(Error, Debug)]
 pub enum StackError {
@@ -19,13 +18,16 @@ pub enum StackError {
     Conversion(#[from] TryFromIntError),
 }
 
-#[serde_as]
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug)]
 pub struct BidirectionalStack<const CAPACITY: usize, const LENGTH_SIZE: usize> {
     front_index: usize,
     back_index: usize,
-    #[serde_as(as = "Bytes")]
     buffer: [u8; CAPACITY],
+}
+
+impl<const CAPACITY: usize, const LENGTH_SIZE: usize> AccountCast
+    for BidirectionalStack<CAPACITY, LENGTH_SIZE>
+{
 }
 
 impl<const CAPACITY: usize, const LENGTH_SIZE: usize> BidirectionalStack<CAPACITY, LENGTH_SIZE> {

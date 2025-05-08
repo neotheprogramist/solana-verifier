@@ -1,5 +1,5 @@
 [package]
-name = "verifier"
+name = "greeting"
 version.workspace = true
 edition.workspace = true
 
@@ -11,5 +11,9 @@ no-entrypoint = []
 
 [dependencies]
 borsh.workspace = true
+ciborium.workspace = true
+serde.workspace = true
 solana-program.workspace = true
 thiserror.workspace = true
+
+utils.workspace = true
