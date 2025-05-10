@@ -1,7 +1,0 @@
-[package]
-name = "dynamic"
-version.workspace = true
-edition.workspace = true
-
-[dependencies]
-utils.workspace = true

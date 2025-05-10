@@ -14,9 +14,8 @@ borsh.workspace = true
 solana-program.workspace = true
 thiserror.workspace = true
 
-dynamic.workspace = true
 utils.workspace = true
-arithmetic.workspace = true
+
 example.workspace = true
 
 [build-dependencies]
