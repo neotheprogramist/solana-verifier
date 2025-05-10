@@ -1,5 +1,5 @@
 [package]
-name = "example"
+name = "arithmetic"
 version.workspace = true
 edition.workspace = true
 

@@ -1,4 +1,4 @@
-use example::*;
+use arithmetic::*;
 use utils::{BidirectionalStack, Executable, Scheduler};
 use verifier::state::BidirectionalStackAccount;
 

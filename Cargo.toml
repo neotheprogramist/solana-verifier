@@ -20,5 +20,5 @@ greeting = { path = "./programs/greeting" }
 verifier = { path = "./programs/verifier" }
 utils = { path = "./programs/utils" }
 
-example = { path = "./tasks/example" }
+arithmetic = { path = "./tasks/arithmetic" }
 stark = { path = "./tasks/stark" }

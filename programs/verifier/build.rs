@@ -77,44 +77,21 @@ fn main() {
 
     // Add a case for each type in all crates
     for (type_name, crate_name) in &types {
-        let struct_name = type_name.split("::").last().unwrap_or(type_name);
+        dispatch_code.push_str(&format!("        // TYPE_TAG from {} crate\n", crate_name));
+        dispatch_code.push_str(&format!(
+            "        {}::{}::TYPE_TAG => {{\n",
+            crate_name, type_name
+        ));
 
-        if crate_name == "crate" {
-            dispatch_code.push_str(&format!("        // TYPE_TAG from {} crate\n", crate_name));
-            dispatch_code.push_str(&format!("        crate::{}::TYPE_TAG => {{\n", type_name));
-            dispatch_code.push_str(
-                "            // Execute the task using unsafe to get around borrow checker\n",
-            );
-            dispatch_code.push_str(&format!(
-                "            unsafe {{\n                let obj = crate::{}::cast_mut(&mut data[4..]);\n                let returned_tasks = obj.execute(&mut *stack_ptr);\n                tasks.extend(returned_tasks);\n                is_finished = obj.is_finished();\n            }}\n",
-                type_name
-            ));
-            dispatch_code.push_str("        },\n");
-        } else {
-            dispatch_code.push_str(&format!("        // TYPE_TAG from {} crate\n", crate_name));
-            dispatch_code.push_str(&format!(
-                "        {}::{}::TYPE_TAG => {{\n",
-                crate_name, type_name
-            ));
-
-            dispatch_code.push_str("            // Create a new instance for the type\n");
-            dispatch_code.push_str(&format!(
-                "            let _{} = {}::{}::cast_mut(&mut data[4..]);\n",
-                struct_name.to_lowercase(),
-                crate_name,
-                type_name
-            ));
-
-            dispatch_code.push_str(
-                "            // Execute the task using unsafe to get around borrow checker\n",
-            );
-            dispatch_code.push_str(&format!(
+        dispatch_code.push_str(
+            "            // Execute the task using unsafe to get around borrow checker\n",
+        );
+        dispatch_code.push_str(&format!(
                 "            unsafe {{\n                let obj = {}::{}::cast_mut(&mut data[4..]);\n                let returned_tasks = obj.execute(&mut *stack_ptr);\n                tasks.extend(returned_tasks);\n                is_finished = obj.is_finished();\n            }}\n",
                 crate_name,
                 type_name
             ));
-            dispatch_code.push_str("        },\n");
-        }
+        dispatch_code.push_str("        },\n");
     }
 
     // Add default case
