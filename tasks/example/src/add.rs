@@ -25,8 +25,7 @@ impl Executable for Add {
         println!("Addition: {} + {} = {}", self.x, self.y, result);
 
         // Convert result to bytes and push to stack
-        let result_bytes = result.to_le_bytes().to_vec();
-        stack.push_front(&result_bytes).unwrap();
+        stack.push_front(&result.to_be_bytes()).unwrap();
 
         Vec::new()
     }

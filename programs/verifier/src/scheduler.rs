@@ -15,7 +15,7 @@ impl BidirectionalStackAccount {
         }
 
         for task in tasks.iter().rev() {
-            let _ = self.push_front(task);
+            let _ = self.push_back(task);
         }
     }
 }

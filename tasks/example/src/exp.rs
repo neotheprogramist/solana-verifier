@@ -33,7 +33,7 @@ impl Executable for Exp {
         );
 
         // Convert result to bytes and push to stack
-        let result_bytes = result.to_le_bytes().to_vec();
+        let result_bytes = result.to_be_bytes().to_vec();
         stack.push_front(&result_bytes).unwrap();
 
         Vec::new()

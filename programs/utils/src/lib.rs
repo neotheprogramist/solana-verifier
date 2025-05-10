@@ -32,10 +32,7 @@ pub trait BidirectionalStack {
 
 pub trait Scheduler: BidirectionalStack {
     fn push_task<T: Executable>(&mut self, task: T) {
-        let mut serialized = Vec::new();
-        serialized.extend_from_slice(&T::TYPE_TAG.to_le_bytes());
-        serialized.extend_from_slice(task.as_bytes());
-        self.push_back(&serialized).unwrap();
+        self.push_back(&task.to_vec_with_type_tag()).unwrap();
     }
     fn push_data(&mut self, data: &[u8]) {
         self.push_front(data).unwrap();
@@ -123,5 +120,12 @@ pub trait Executable: Sized + TypeIdentifiable {
                 std::mem::size_of::<Self>(),
             )
         }
+    }
+
+    fn to_vec_with_type_tag(&self) -> Vec<u8> {
+        let mut vec = Vec::new();
+        vec.extend_from_slice(&Self::TYPE_TAG.to_be_bytes());
+        vec.extend_from_slice(self.as_bytes());
+        vec
     }
 }

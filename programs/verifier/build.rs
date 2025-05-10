@@ -71,7 +71,7 @@ fn main() {
     // Read the 32-bit type tag from the first 4 bytes
     dispatch_code
         .push_str("    let type_tag_bytes: [u8; 4] = [data[0], data[1], data[2], data[3]];\n");
-    dispatch_code.push_str("    let type_tag = u32::from_le_bytes(type_tag_bytes);\n");
+    dispatch_code.push_str("    let type_tag = u32::from_be_bytes(type_tag_bytes);\n");
 
     dispatch_code.push_str("    match type_tag {\n");
 
@@ -82,12 +82,6 @@ fn main() {
         if crate_name == "crate" {
             dispatch_code.push_str(&format!("        // TYPE_TAG from {} crate\n", crate_name));
             dispatch_code.push_str(&format!("        crate::{}::TYPE_TAG => {{\n", type_name));
-            dispatch_code.push_str("            // Create a new instance for the type\n");
-            dispatch_code.push_str(&format!(
-                "            let _{} = crate::{}::cast_mut(&mut data[4..]);\n",
-                struct_name.to_lowercase(),
-                type_name
-            ));
             dispatch_code.push_str(
                 "            // Execute the task using unsafe to get around borrow checker\n",
             );
@@ -253,34 +247,74 @@ fn find_executable_types(
             .to_string()
     };
 
-    // Check if the file implements Executable trait
+    // Detect all Executable implementations and their struct names
+    let mut struct_names = Vec::new();
+    let mut in_impl_block = false;
+    let mut current_struct = String::new();
+
+    // First pass: collect all struct names
+    for line in content.lines() {
+        let line = line.trim();
+        
+        // Check for struct declarations (both public and private)
+        if line.starts_with("pub struct ") || line.starts_with("struct ") {
+            let parts: Vec<&str> = line.split_whitespace().collect();
+            if parts.len() >= 3 {
+                let struct_name = parts[2].trim_matches(|c| c == '{' || c == ' ' || c == '\t');
+                struct_names.push(struct_name.to_string());
+            }
+        }
+    }
+
+    // Second pass: find Executable implementations
+    for line in content.lines() {
+        let line = line.trim();
+        
+        // Start of an impl block for Executable
+        if line.contains("impl") && line.contains("Executable for") {
+            in_impl_block = true;
+            
+            // Extract the struct name from the impl line
+            if let Some(struct_part) = line.split("for").nth(1) {
+                let struct_name = struct_part.trim().trim_matches(|c| c == '{' || c == ' ' || c == '\t');
+                current_struct = struct_name.to_string();
+            }
+        } else if in_impl_block && line.contains("}") {
+            in_impl_block = false;
+            
+            // If we found a valid implementation and the struct exists
+            if !current_struct.is_empty() && struct_names.contains(&current_struct) {
+                // Create the fully qualified path
+                let full_path = if mod_name.is_empty() {
+                    current_struct.clone()
+                } else {
+                    format!("{}::{}", mod_name, current_struct)
+                };
+                
+                // Add the fully qualified name and crate
+                types.insert((full_path, crate_name.to_string()));
+                current_struct = String::new();
+            }
+        }
+    }
+    
+    // Also check for direct pattern matches for backward compatibility
     if content.contains("impl Executable for")
         || content.contains("impl traits::Executable for")
         || content.contains("impl crate::traits::Executable for")
         || content.contains("impl dynamic::traits::Executable for")
         || content.contains("impl utils::Executable for")
     {
-        // Extract struct names
-        for line in content.lines() {
-            let line = line.trim();
-
-            if line.starts_with("pub struct ") {
-                let struct_name = line
-                    .split_whitespace()
-                    .nth(2)
-                    .unwrap_or_default()
-                    .trim_matches(|c| c == '{' || c == ' ' || c == '\t');
-
-                // Create the fully qualified path
-                let full_path = if mod_name.is_empty() {
-                    struct_name.to_string()
-                } else {
-                    format!("{}::{}", mod_name, struct_name)
-                };
-
-                // Add the fully qualified name and crate
-                types.insert((full_path, crate_name.to_string()));
-            }
+        for struct_name in struct_names {
+            // Create the fully qualified path
+            let full_path = if mod_name.is_empty() {
+                struct_name.clone()
+            } else {
+                format!("{}::{}", mod_name, struct_name)
+            };
+            
+            // Add the fully qualified name and crate
+            types.insert((full_path, crate_name.to_string()));
         }
     }
 }
