@@ -12,34 +12,64 @@ impl Fibonacci {
     pub fn new(n: u32) -> Self {
         Self { n }
     }
+}
 
-    fn compute(&self) -> u128 {
-        if self.n <= 1 {
-            return self.n as u128;
-        }
+#[repr(C)]
+pub struct FibonacciCombiner {
+    n: u32,
+}
 
-        // Calculate Fibonacci with overflow protection
-        let mut a: u128 = 0;
-        let mut b: u128 = 1;
+impl_type_identifiable!(FibonacciCombiner);
 
-        for _ in 2..=self.n {
-            let next = a.saturating_add(b);
-            a = b;
-            b = next;
-        }
-
-        b
+impl FibonacciCombiner {
+    pub fn new(n: u32) -> Self {
+        Self { n }
     }
 }
 
 impl Executable for Fibonacci {
     fn execute<T: BidirectionalStack>(&mut self, stack: &mut T) -> Vec<Vec<u8>> {
-        let result = self.compute();
-        println!("Fibonacci({}) = {}", self.n, result);
+        match self.n {
+            0 => {
+                // Base case: F(0) = 0
+                stack.push_front(&0u128.to_be_bytes()).unwrap();
+                Vec::new()
+            }
+            1 => {
+                // Base case: F(1) = 1
+                stack.push_front(&1u128.to_be_bytes()).unwrap();
+                Vec::new()
+            }
+            n => {
+                // Recursive case: F(n) = F(n-1) + F(n-2)
+                vec![
+                    Fibonacci::new(n - 1).to_vec_with_type_tag(),
+                    Fibonacci::new(n - 2).to_vec_with_type_tag(),
+                    FibonacciCombiner::new(n).to_vec_with_type_tag(),
+                ]
+            }
+        }
+    }
 
-        // Convert result to bytes and push to stack
-        let result_bytes = result.to_be_bytes().to_vec();
-        stack.push_front(&result_bytes).unwrap();
+    fn is_finished(&mut self) -> bool {
+        true // The main Fibonacci task is finished after creating subtasks
+    }
+}
+
+impl Executable for FibonacciCombiner {
+    fn execute<T: BidirectionalStack>(&mut self, stack: &mut T) -> Vec<Vec<u8>> {
+        // Pop F(n-2) and F(n-1) from the stack
+        let fib_n_2 = u128::from_be_bytes(stack.borrow_front().try_into().unwrap());
+        stack.pop_front();
+
+        let fib_n_1 = u128::from_be_bytes(stack.borrow_front().try_into().unwrap());
+        stack.pop_front();
+
+        // Compute F(n) = F(n-1) + F(n-2)
+        let result = fib_n_1.saturating_add(fib_n_2);
+
+        // Push the result back to the stack
+        stack.push_front(&result.to_be_bytes()).unwrap();
 
         Vec::new()
     }

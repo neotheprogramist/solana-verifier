@@ -2,7 +2,7 @@ use utils::{AccountCast, BidirectionalStack};
 
 use crate::error::VerifierError;
 
-const CAPACITY: usize = 1024;
+const CAPACITY: usize = 65536;
 const LENGTH_SIZE: usize = 2;
 
 /// Define the type of state stored in accounts

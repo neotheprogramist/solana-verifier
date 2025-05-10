@@ -32,7 +32,7 @@ fn main() {
     stack.push_task(add::Add::new(48, 52));
     stack.push_task(mul::Mul::new(5, 7));
     stack.push_task(exp::Exp::new(2, 8));
-    // stack.push_task(fib::Fibonacci::new(10));
+    stack.push_task(fib::Fibonacci::new(19));
 
     println!("\nExecuting arithmetic operations from stack:");
     println!("=========================================");
@@ -57,4 +57,12 @@ fn main() {
         u128::from_be_bytes(stack.borrow_front().try_into().unwrap())
     );
     stack.pop_front();
+    println!(
+        "Fib result: {:?}",
+        u128::from_be_bytes(stack.borrow_front().try_into().unwrap())
+    );
+    stack.pop_front();
+
+    println!("Stack: {:?}", stack.front_index);
+    println!("Stack: {:?}", stack.back_index);
 }
