@@ -46,9 +46,6 @@ impl Executable for MulInternal {
         self.counter += 1;
         self.result = add_result;
 
-        // Initialize with Add(0, x) and MulInternal to track progress
-        println!("MulInternal with result: {}", self.result);
-
         // Remove the result from the stack
         stack.pop_front();
 
@@ -74,9 +71,6 @@ impl Executable for Mul {
             stack.push_front(&0u128.to_be_bytes()).unwrap();
             Vec::new()
         } else {
-            // Initialize with Add(0, x) and MulInternal to track progress
-            println!("Starting multiplication: {} * {}", self.x, self.y);
-
             // Create tasks for initial addition and tracking multiplication progress
             vec![
                 Add::new(0, self.x).to_vec_with_type_tag(),

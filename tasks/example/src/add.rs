@@ -22,7 +22,6 @@ impl Add {
 impl Executable for Add {
     fn execute<T: BidirectionalStack>(&mut self, stack: &mut T) -> Vec<Vec<u8>> {
         let result = self.compute();
-        println!("Addition: {} + {} = {}", self.x, self.y, result);
 
         // Convert result to bytes and push to stack
         stack.push_front(&result.to_be_bytes()).unwrap();

@@ -29,9 +29,9 @@ fn main() {
     let mut stack = BidirectionalStackAccount::default();
 
     // Push arithmetic tasks to the stack
-    // stack.push_task(add::Add::new(10, 25));
+    stack.push_task(add::Add::new(48, 52));
     stack.push_task(mul::Mul::new(5, 7));
-    // stack.push_task(exp::Exp::new(2, 8));
+    stack.push_task(exp::Exp::new(2, 8));
     // stack.push_task(fib::Fibonacci::new(10));
 
     println!("\nExecuting arithmetic operations from stack:");
@@ -41,4 +41,20 @@ fn main() {
     while !stack.is_empty_back() {
         stack.execute();
     }
+
+    println!(
+        "Add result: {:?}",
+        u128::from_be_bytes(stack.borrow_front().try_into().unwrap())
+    );
+    stack.pop_front();
+    println!(
+        "Mul result: {:?}",
+        u128::from_be_bytes(stack.borrow_front().try_into().unwrap())
+    );
+    stack.pop_front();
+    println!(
+        "Exp result: {:?}",
+        u128::from_be_bytes(stack.borrow_front().try_into().unwrap())
+    );
+    stack.pop_front();
 }

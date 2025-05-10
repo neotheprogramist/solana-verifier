@@ -255,7 +255,7 @@ fn find_executable_types(
     // First pass: collect all struct names
     for line in content.lines() {
         let line = line.trim();
-        
+
         // Check for struct declarations (both public and private)
         if line.starts_with("pub struct ") || line.starts_with("struct ") {
             let parts: Vec<&str> = line.split_whitespace().collect();
@@ -269,19 +269,21 @@ fn find_executable_types(
     // Second pass: find Executable implementations
     for line in content.lines() {
         let line = line.trim();
-        
+
         // Start of an impl block for Executable
         if line.contains("impl") && line.contains("Executable for") {
             in_impl_block = true;
-            
+
             // Extract the struct name from the impl line
             if let Some(struct_part) = line.split("for").nth(1) {
-                let struct_name = struct_part.trim().trim_matches(|c| c == '{' || c == ' ' || c == '\t');
+                let struct_name = struct_part
+                    .trim()
+                    .trim_matches(|c| c == '{' || c == ' ' || c == '\t');
                 current_struct = struct_name.to_string();
             }
         } else if in_impl_block && line.contains("}") {
             in_impl_block = false;
-            
+
             // If we found a valid implementation and the struct exists
             if !current_struct.is_empty() && struct_names.contains(&current_struct) {
                 // Create the fully qualified path
@@ -290,14 +292,14 @@ fn find_executable_types(
                 } else {
                     format!("{}::{}", mod_name, current_struct)
                 };
-                
+
                 // Add the fully qualified name and crate
                 types.insert((full_path, crate_name.to_string()));
                 current_struct = String::new();
             }
         }
     }
-    
+
     // Also check for direct pattern matches for backward compatibility
     if content.contains("impl Executable for")
         || content.contains("impl traits::Executable for")
@@ -312,7 +314,7 @@ fn find_executable_types(
             } else {
                 format!("{}::{}", mod_name, struct_name)
             };
-            
+
             // Add the fully qualified name and crate
             types.insert((full_path, crate_name.to_string()));
         }
