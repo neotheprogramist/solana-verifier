@@ -14,6 +14,25 @@ use crate::{instruction::VerifierInstruction, state::BidirectionalStackAccount};
 pub struct Processor;
 
 impl Processor {
+    /// Process the initialize instruction
+    pub fn process_initialize(accounts: &[AccountInfo]) -> ProgramResult {
+        msg!("Processing Initialize instruction");
+
+        // Get the account to initialize
+        let accounts_iter = &mut accounts.iter();
+        let account = next_account_info(accounts_iter)?;
+
+        // Initialize the bidirectional stack
+        let mut data = account.try_borrow_mut_data()?;
+        let stack_account = BidirectionalStackAccount::cast_mut(*data);
+
+        // Set to default values - front_index to 0, back_index to CAPACITY
+        *stack_account = BidirectionalStackAccount::default();
+        msg!("Account initialized successfully");
+
+        Ok(())
+    }
+
     /// Process the push task instruction
     pub fn process_push_task(accounts: &[AccountInfo], task_data: Vec<u8>) -> ProgramResult {
         msg!("Processing PushTask instruction");
@@ -69,6 +88,7 @@ pub fn process_instruction(
 
     // Process the instruction
     match instruction {
+        VerifierInstruction::Initialize => Processor::process_initialize(accounts),
         VerifierInstruction::PushTask(task_data) => {
             Processor::process_push_task(accounts, task_data)
         }

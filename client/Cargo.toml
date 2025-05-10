@@ -17,3 +17,6 @@ thiserror.workspace = true
 greeting.workspace = true
 verifier.workspace = true
 utils.workspace = true
+
+arithmetic.workspace = true
+stark.workspace = true

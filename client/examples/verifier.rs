@@ -1,15 +1,27 @@
 use arithmetic::add::Add;
-use client::{
-    initialize_client, interact_with_program_instructions, setup_account, setup_payer,
-    setup_program, ClientError, Config,
-};
+use client::{initialize_client, setup_payer, ClientError, Config};
 use solana_sdk::{
     instruction::{AccountMeta, Instruction},
-    signer::Signer,
+    pubkey::Pubkey,
+    signature::{Keypair, Signer},
+    system_instruction,
+    transaction::Transaction,
 };
-use std::{mem::size_of, path::Path};
-use utils::{AccountCast, BidirectionalStack};
+use std::{mem::size_of, str::FromStr};
+use utils::{AccountCast, BidirectionalStack, Executable};
 use verifier::{instruction::VerifierInstruction, state::BidirectionalStackAccount};
+
+// Helper function to print byte array
+fn print_bytes(bytes: &[u8]) {
+    print!("[");
+    for (i, byte) in bytes.iter().enumerate() {
+        if i > 0 {
+            print!(", ");
+        }
+        print!("{}", byte);
+    }
+    println!("]");
+}
 
 /// Main entry point for the Solana program client
 fn main() -> client::Result<()> {
@@ -22,75 +34,162 @@ fn main() -> client::Result<()> {
     // Setup the payer account
     let payer = setup_payer(&client, &config)?;
 
-    // Define program path
-    let program_path = Path::new("target/deploy/verifier.so");
+    // Get program ID from environment variable or use the default
+    let program_id = if let Ok(id_str) = std::env::var("PROGRAM_ID") {
+        Pubkey::from_str(&id_str).unwrap_or_else(|_| {
+            // Default program ID from the deployed program
+            Pubkey::from_str("F2G4q7fGoPAagN59euVMYSCttUTDrST85wck6Rk6CDd6").unwrap()
+        })
+    } else {
+        // Default program ID from the deployed program
+        Pubkey::from_str("F2G4q7fGoPAagN59euVMYSCttUTDrST85wck6Rk6CDd6").unwrap()
+    };
 
-    // Deploy or use existing program
-    let program_id = setup_program(&client, &payer, &config, program_path)?;
+    println!("Using program ID: {}", program_id);
 
-    // Setup verifier account
+    // Create a new account that's owned by our program
+    let stack_account = Keypair::new();
+    println!("Creating new account: {}", stack_account.pubkey());
+
+    // Calculate the space needed for our account
     let space = size_of::<BidirectionalStackAccount>();
-    println!("Verifier account space: {}", space);
-    let verifier_account = setup_account(
-        &client,
-        &payer,
+    println!("Account space: {} bytes", space);
+
+    // Create account instruction
+    let create_account_ix = system_instruction::create_account(
+        &payer.pubkey(),
+        &stack_account.pubkey(),
+        client.get_minimum_balance_for_rent_exemption(space)?,
+        space as u64,
         &program_id,
-        &config,
-        space,
-        "verifier-account",
-    )?;
+    );
 
-    // Create an Add task with operands 42 and 58
-    let add_task = Add::new(42, 58);
+    // Create and send the transaction
+    let create_account_tx = Transaction::new_signed_with_payer(
+        &[create_account_ix],
+        Some(&payer.pubkey()),
+        &[&payer, &stack_account],
+        client.get_latest_blockhash()?,
+    );
 
-    // Serialize the task using CBOR
-    let mut task_data = Vec::new();
-    ciborium::ser::into_writer(&add_task, &mut task_data)
-        .map_err(|e| ClientError::SerializationError(format!("Failed to serialize task: {}", e)))?;
+    let signature = client.send_and_confirm_transaction(&create_account_tx)?;
+    println!("Account created successfully: {}", signature);
 
-    println!("Serialized task size: {} bytes", task_data.len());
+    // Initialize the account
+    let init_ix = Instruction::new_with_borsh(
+        program_id,
+        &VerifierInstruction::Initialize,
+        vec![AccountMeta::new(stack_account.pubkey(), false)],
+    );
 
-    // Create instructions
-    let instructions = vec![
-        // Push the Add task to the stack
-        Instruction::new_with_borsh(
-            program_id,
-            &VerifierInstruction::PushTask(task_data),
-            vec![AccountMeta::new(verifier_account.pubkey(), false)],
-        ),
-        // Execute the task
-        Instruction::new_with_borsh(
-            program_id,
-            &VerifierInstruction::Execute,
-            vec![AccountMeta::new(verifier_account.pubkey(), false)],
-        ),
-    ];
+    // Send initialize transaction
+    let init_tx = Transaction::new_signed_with_payer(
+        &[init_ix],
+        Some(&payer.pubkey()),
+        &[&payer],
+        client.get_latest_blockhash()?,
+    );
 
-    // Interact with the program using the instructions directly
-    interact_with_program_instructions(
-        &client,
-        &payer,
-        &program_id,
-        &verifier_account,
-        &instructions,
-    )?;
+    let init_signature = client.send_and_confirm_transaction(&init_tx)?;
+    println!("Account initialized: {}", init_signature);
 
-    println!("Verifier program interaction completed successfully!");
-
-    // Get the account data to check the result
-    let mut account_data = client
-        .get_account_data(&verifier_account.pubkey())
+    // Cast to stack account to see if initialized correctly
+    let account_data_after_init = client
+        .get_account_data(&stack_account.pubkey())
         .map_err(ClientError::SolanaClientError)?;
-    let stack_account = BidirectionalStackAccount::cast_mut(&mut account_data);
+    let stack = BidirectionalStackAccount::cast(&account_data_after_init);
+    println!("Stack front_index: {}", stack.front_index);
+    println!("Stack back_index: {}", stack.back_index);
 
-    // Read the result from the front of the stack
-    let result: u128 = ciborium::de::from_reader(stack_account.borrow_front()).map_err(|e| {
-        ClientError::SerializationError(format!("Failed to deserialize result: {}", e))
-    })?;
+    println!("\nDynamic Arithmetic Operations on Solana");
+    println!("======================================");
 
-    println!("Stack front index: {}", stack_account.front_index);
-    println!("Stack back index: {}", stack_account.back_index);
-    println!("Result of 42 + 58 = {}", result);
+    // Print information about the Add operation
+    println!("Using Add operation with TYPE_TAG: {}", Add::TYPE_TAG);
+
+    // Create Add task (same as in arithmetic example)
+    let add_task = Add::new(48, 52);
+    let add_data = add_task.to_vec_with_type_tag();
+    println!("Add task data size: {} bytes", add_data.len());
+
+    // Print the task data in a readable format
+    println!("Task data:");
+    print_bytes(&add_data);
+
+    // Push the task to the stack
+    let push_task_ix = Instruction::new_with_borsh(
+        program_id,
+        &VerifierInstruction::PushTask(add_data),
+        vec![AccountMeta::new(stack_account.pubkey(), false)],
+    );
+
+    let push_tx = Transaction::new_signed_with_payer(
+        &[push_task_ix],
+        Some(&payer.pubkey()),
+        &[&payer],
+        client.get_latest_blockhash()?,
+    );
+
+    let push_signature = client.send_and_confirm_transaction(&push_tx)?;
+    println!("\nTask pushed: {}", push_signature);
+
+    // Check stack state after pushing
+    let account_data_after_push = client
+        .get_account_data(&stack_account.pubkey())
+        .map_err(ClientError::SolanaClientError)?;
+    let stack_after_push = BidirectionalStackAccount::cast(&account_data_after_push);
+    println!("Stack front index: {}", stack_after_push.front_index);
+    println!("Stack back index: {}", stack_after_push.back_index);
+
+    // Execute the task
+    let execute_ix = Instruction::new_with_borsh(
+        program_id,
+        &VerifierInstruction::Execute,
+        vec![AccountMeta::new(stack_account.pubkey(), false)],
+    );
+
+    let execute_tx = Transaction::new_signed_with_payer(
+        &[execute_ix],
+        Some(&payer.pubkey()),
+        &[&payer],
+        client.get_latest_blockhash()?,
+    );
+
+    let execute_signature = client.send_and_confirm_transaction(&execute_tx)?;
+    println!("\nTask executed: {}", execute_signature);
+
+    // Check final stack state
+    let final_account_data = client
+        .get_account_data(&stack_account.pubkey())
+        .map_err(ClientError::SolanaClientError)?;
+    let final_stack = BidirectionalStackAccount::cast(&final_account_data);
+    println!("Stack front index: {}", final_stack.front_index);
+    println!("Stack back index: {}", final_stack.back_index);
+
+    // Read and display the result
+    let result_bytes = final_stack.borrow_front();
+    println!("Result bytes (length: {}): ", result_bytes.len());
+    print_bytes(result_bytes);
+
+    if result_bytes.len() >= 16 {
+        let mut result_array = [0u8; 16];
+        result_array.copy_from_slice(&result_bytes[0..16]);
+        let result = u128::from_be_bytes(result_array);
+
+        println!("\nAdd result (48 + 52): {}", result);
+        if result == 100 {
+            println!("Success! Computation matches expected result.");
+        } else {
+            println!("ERROR: Result does not match expected value of 100!");
+        }
+    } else {
+        println!(
+            "\nERROR: Result data is too short: {} bytes",
+            result_bytes.len()
+        );
+    }
+
+    println!("\nArithmetic operation successfully executed on Solana!");
 
     Ok(())
 }
