@@ -32,18 +32,18 @@ impl HadesPermutation {
     /// Redefined mix function for optimization purposes
     #[inline(always)]
     fn mix(state: &mut [Felt]) {
-        let t = &state[0] + &state[1] + &state[2];
-        state[0] = &t + &state[0].double();
-        state[1] = &t - &state[1].double();
-        state[2] = &t - (&state[2] + &state[2] + &state[2]);
+        let t = state[0] + state[1] + &state[2];
+        state[0] = t + state[0].double();
+        state[1] = t - state[1].double();
+        state[2] = &t - (state[2] + state[2] + &state[2]);
     }
 
     #[inline(always)]
     fn full_round(&mut self) {
         // Perform full round
         for (i, value) in self.state.iter_mut().enumerate() {
-            *value = &(*value) + &Self::ROUND_CONSTANTS[self.constants_index + i];
-            *value = &(*value).square() * &*value;
+            *value += Self::ROUND_CONSTANTS[self.constants_index + i];
+            *value = (*value).square() * *value;
         }
 
         // Mix step is common for both round types
@@ -53,7 +53,7 @@ impl HadesPermutation {
     #[inline(always)]
     fn partial_round(&mut self) {
         // Perform partial round
-        self.state[2] = self.state[2] + Self::ROUND_CONSTANTS[self.constants_index];
+        self.state[2] += Self::ROUND_CONSTANTS[self.constants_index];
         self.state[2] = self.state[2].square() * self.state[2];
 
         // Mix step
