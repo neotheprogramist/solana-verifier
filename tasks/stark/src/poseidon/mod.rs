@@ -2,6 +2,8 @@ use crate::felt::Felt;
 use utils::{impl_type_identifiable, BidirectionalStack};
 use utils::{Executable, TypeIdentifiable};
 
+pub mod constants;
+pub mod hades;
 pub mod poseidon;
 
 #[repr(C)]

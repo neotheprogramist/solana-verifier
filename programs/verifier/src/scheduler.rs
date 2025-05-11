@@ -1,5 +1,4 @@
 use crate::state::BidirectionalStackAccount;
-use solana_program::msg;
 use utils::{BidirectionalStack, Executable, Scheduler};
 
 // Include the generated dispatch code
@@ -9,7 +8,6 @@ impl Scheduler for BidirectionalStackAccount {}
 
 impl BidirectionalStackAccount {
     pub fn execute(&mut self) {
-        msg!("Executing tasks");
         let (tasks, is_finished) = execute(self);
 
         if is_finished {

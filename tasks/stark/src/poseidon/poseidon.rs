@@ -1,42 +1,46 @@
-use crate::felt::Felt;
-use lambdaworks_crypto::hash::poseidon::{
-    starknet::PoseidonCairoStark252, Poseidon as PoseidonLambdaworks,
-};
-pub struct Poseidon;
+pub struct PoseidonHashSingle;
+
+pub struct PoseidonHashTwo;
+
+pub struct PoseidonHashMany;
 
 // impl Poseidon {
-//     /// Computes the Hades permutation over a mutable state of 3 Felts, as defined
-//     /// in <https://docs.starknet.io/documentation/architecture_and_concepts/Cryptography/hash-functions/#poseidon_array_hash>
-//     pub fn hades_permutation(state: &mut [Felt; 3]) {
-//         let mut state_inner = [state[0].0, state[1].0, state[2].0];
-//         PoseidonCairoStark252::hades_permutation(&mut state_inner);
-//         for i in 0..3 {
-//             state[i] = Felt(state_inner[i]);
+//     fn hash(x: &Felt, y: &Felt) -> Felt {
+//         let mut state: Vec<Felt> = vec![x.clone(), y.clone(), Felt::from_hex("0x2").unwrap()];
+//         Self::hades_permutation(&mut state);
+//         let x = &state[0];
+//         x.clone()
+//     }
+
+//     fn hash_single(x: &Felt) -> Felt {
+//         let mut state: Vec<Felt> = vec![x.clone(), Felt::ZERO, Felt::ONE];
+//         Self::hades_permutation(&mut state);
+//         let x = &state[0];
+//         x.clone()
+//     }
+
+//     fn hash_many(inputs: &[Felt]) -> Felt {
+//         let r = Self::RATE; // chunk size
+//         let m = Self::STATE_SIZE; // state size
+
+//         // Pad input with 1 followed by 0's (if necessary).
+//         let mut values = inputs.to_owned();
+//         values.push(Felt::ONE);
+//         values.resize(values.len().div_ceil(r) * r, Felt::ZERO);
+
+//         assert!(values.len() % r == 0);
+//         let mut state: Vec<Felt> = vec![Felt::ZERO; m];
+
+//         // Process each block
+//         for block in values.chunks(r) {
+//             let mut block_state: Vec<Felt> =
+//                 state[0..r].iter().zip(block).map(|(s, b)| s + b).collect();
+//             block_state.extend_from_slice(&state[r..]);
+
+//             Self::hades_permutation(&mut block_state);
+//             state = block_state;
 //         }
+
+//         state[0].clone()
 //     }
 // }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    // #[test]
-    // fn test_hades_permutation() {
-    //     let mut state = [
-    //         Felt::from_hex("0x9").unwrap(),
-    //         Felt::from_hex("0xb").unwrap(),
-    //         Felt::from_hex("0x2").unwrap(),
-    //     ];
-    //     let expected = [
-    //         Felt::from_hex("0x510f3a3faf4084e3b1e95fd44c30746271b48723f7ea9c8be6a9b6b5408e7e6")
-    //             .unwrap(),
-    //         Felt::from_hex("0x4f511749bd4101266904288021211333fb0a514cb15381af087462fa46e6bd9")
-    //             .unwrap(),
-    //         Felt::from_hex("0x186f6dd1a6e79cb1b66d505574c349272cd35c07c223351a0990410798bb9d8")
-    //             .unwrap(),
-    //     ];
-    //     Poseidon::hades_permutation(&mut state);
-
-    //     assert_eq!(state, expected);
-    // }
-}
