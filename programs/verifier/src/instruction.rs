@@ -15,6 +15,12 @@ pub enum VerifierInstruction {
     /// 0. `[writable]` The verifier account
     PushTask(Vec<u8>),
 
+    /// Pushes data to the verifier account's bidirectional stack
+    ///
+    /// Accounts expected:
+    /// 0. `[writable]` The verifier account
+    PushData(Vec<u8>),
+
     /// Executes the next task in the verifier account's bidirectional stack
     ///
     /// Accounts expected:

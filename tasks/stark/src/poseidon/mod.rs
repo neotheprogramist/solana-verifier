@@ -15,7 +15,15 @@ pub struct PoseidonHashMany {
 impl_type_identifiable!(PoseidonHashMany);
 
 impl PoseidonHashMany {
-    pub fn new<T: BidirectionalStack>(inputs: &[Felt], stack: &mut T) -> Self {
+    pub fn new(inputs: &[Felt]) -> Self {
+        Self {
+            state: [Felt::ZERO; 3],
+            input_length: (inputs.len() + 1).div_ceil(2) * 2,
+            counter: 0,
+        }
+    }
+
+    pub fn push_input<T: BidirectionalStack>(inputs: &[Felt], stack: &mut T) {
         // Pad input with 1 followed by 0's (if necessary).
         let mut values = inputs.to_owned();
         values.push(Felt::ONE);
@@ -29,12 +37,6 @@ impl PoseidonHashMany {
         stack.push_front(&Felt::ZERO.to_bytes_be()).unwrap();
         stack.push_front(&Felt::ZERO.to_bytes_be()).unwrap();
         stack.push_front(&Felt::ZERO.to_bytes_be()).unwrap();
-
-        Self {
-            state: [Felt::ZERO; 3],
-            input_length: values.len(),
-            counter: 0,
-        }
     }
 }
 

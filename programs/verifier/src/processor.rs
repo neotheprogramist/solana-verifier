@@ -55,6 +55,28 @@ impl Processor {
         Ok(())
     }
 
+    /// Process the push data instruction
+    pub fn process_push_data(accounts: &[AccountInfo], data_payload: Vec<u8>) -> ProgramResult {
+        msg!("Processing PushData instruction");
+
+        // Get the account to push data to
+        let accounts_iter = &mut accounts.iter();
+        let account = next_account_info(accounts_iter)?;
+
+        // Push the data to the bidirectional stack
+        let mut data = account.try_borrow_mut_data()?;
+        let stack_account = BidirectionalStackAccount::cast_mut(*data);
+
+        // Push the data to the front of the stack
+        stack_account.push_front(&data_payload).map_err(|e| {
+            msg!("Error pushing data: {:?}", e);
+            ProgramError::InvalidInstructionData
+        })?;
+        msg!("Data pushed successfully");
+
+        Ok(())
+    }
+
     /// Process the execute instruction
     pub fn process_execute(accounts: &[AccountInfo]) -> ProgramResult {
         msg!("Processing Execute instruction");
@@ -91,6 +113,9 @@ pub fn process_instruction(
         VerifierInstruction::Initialize => Processor::process_initialize(accounts),
         VerifierInstruction::PushTask(task_data) => {
             Processor::process_push_task(accounts, task_data)
+        }
+        VerifierInstruction::PushData(data_payload) => {
+            Processor::process_push_data(accounts, data_payload)
         }
         VerifierInstruction::Execute => Processor::process_execute(accounts),
     }

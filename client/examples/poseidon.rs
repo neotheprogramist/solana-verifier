@@ -6,7 +6,7 @@ use solana_sdk::{
     transaction::Transaction,
 };
 use stark::felt::Felt;
-use stark::poseidon::PoseidonTask;
+use stark::poseidon::PoseidonHashMany;
 use std::{mem::size_of, path::Path};
 use utils::{AccountCast, BidirectionalStack, Executable};
 use verifier::{instruction::VerifierInstruction, state::BidirectionalStackAccount};
@@ -84,24 +84,80 @@ fn main() -> client::Result<()> {
     println!("Stack front_index: {}", stack.front_index);
     println!("Stack back_index: {}", stack.back_index);
 
-    println!("\nPoseidon Hash Operation on Solana");
-    println!("================================");
+    println!("\nPoseidon Hash on Solana");
+    println!("======================");
 
     // Print information about the Poseidon operation
     println!(
-        "Using Poseidon operation with TYPE_TAG: {}",
-        PoseidonTask::TYPE_TAG
+        "Using PoseidonHashMany with TYPE_TAG: {}",
+        PoseidonHashMany::TYPE_TAG
     );
 
-    // Create a Felt value to hash
-    // Using a simple value for demonstration
-    let value = Felt::from(42u64);
-    println!("\nInput value: {}", value);
+    // Create inputs for Poseidon hash (using example from test)
+    let inputs = vec![
+        Felt::from_hex("0x1").unwrap(),
+        Felt::from_hex("0x2").unwrap(),
+        Felt::from_hex("0x3").unwrap(),
+        Felt::from_hex("0x4").unwrap(),
+    ];
+
+    println!("Input values:");
+    for (i, input) in inputs.iter().enumerate() {
+        println!("  Input {}: {}", i + 1, input);
+    }
+
+    // Push all input data to the stack following the Poseidon algorithm
+    // 1. Pad inputs with 1 followed by 0's if necessary to make even length
+    let mut padded_inputs = inputs.clone();
+    padded_inputs.push(Felt::ONE);
+    padded_inputs.resize((padded_inputs.len() + 1) / 2 * 2, Felt::ZERO);
+
+    println!("Padded input length: {}", padded_inputs.len());
+
+    // 2. Push values in reverse order
+    for input in padded_inputs.iter().rev() {
+        let push_data_ix = Instruction::new_with_borsh(
+            program_id,
+            &VerifierInstruction::PushData(input.to_bytes_be().to_vec()),
+            vec![AccountMeta::new(stack_account.pubkey(), false)],
+        );
+
+        let push_data_tx = Transaction::new_signed_with_payer(
+            &[push_data_ix],
+            Some(&payer.pubkey()),
+            &[&payer],
+            client.get_latest_blockhash()?,
+        );
+
+        let push_data_sig = client.send_and_confirm_transaction(&push_data_tx)?;
+        println!("Pushed input value: {}", input);
+    }
+
+    // 3. Push three zeros
+    for _ in 0..3 {
+        let push_data_ix = Instruction::new_with_borsh(
+            program_id,
+            &VerifierInstruction::PushData(Felt::ZERO.to_bytes_be().to_vec()),
+            vec![AccountMeta::new(stack_account.pubkey(), false)],
+        );
+
+        let push_data_tx = Transaction::new_signed_with_payer(
+            &[push_data_ix],
+            Some(&payer.pubkey()),
+            &[&payer],
+            client.get_latest_blockhash()?,
+        );
+
+        let push_data_sig = client.send_and_confirm_transaction(&push_data_tx)?;
+        println!("Pushed zero value");
+    }
+
+    let poseidon_task = PoseidonHashMany::new(&inputs);
 
     // Push the task to the stack
     let push_task_ix = Instruction::new_with_borsh(
         program_id,
-        &VerifierInstruction::PushTask(PoseidonTask::new(value).to_vec_with_type_tag()),
+        &VerifierInstruction::PushTask(poseidon_task.to_vec_with_type_tag()),
         vec![AccountMeta::new(stack_account.pubkey(), false)],
     );
 
@@ -113,50 +169,61 @@ fn main() -> client::Result<()> {
     );
 
     let push_signature = client.send_and_confirm_transaction(&push_tx)?;
-    println!("\nTask pushed: {}", push_signature);
+    println!("\nPoseidon hash task pushed: {}", push_signature);
 
-    // Check stack state after pushing
-    let account_data_after_push = client
+    // Execute until task is complete
+    let mut steps = 0;
+    loop {
+        // Execute the task
+        let execute_ix = Instruction::new_with_borsh(
+            program_id,
+            &VerifierInstruction::Execute,
+            vec![AccountMeta::new(stack_account.pubkey(), false)],
+        );
+
+        let execute_tx = Transaction::new_signed_with_payer(
+            &[execute_ix],
+            Some(&payer.pubkey()),
+            &[&payer],
+            client.get_latest_blockhash()?,
+        );
+
+        let _execute_signature = client.send_and_confirm_transaction(&execute_tx)?;
+        println!(".");
+        steps += 1;
+
+        // Check stack state
+        let account_data = client
+            .get_account_data(&stack_account.pubkey())
+            .map_err(ClientError::SolanaClientError)?;
+        let stack = BidirectionalStackAccount::cast(&account_data);
+        if stack.is_empty_back() {
+            println!("\nExecution complete after {} steps", steps);
+            break;
+        }
+    }
+
+    // Read and display the result
+    let mut account_data = client
         .get_account_data(&stack_account.pubkey())
         .map_err(ClientError::SolanaClientError)?;
-    let stack_after_push = BidirectionalStackAccount::cast(&account_data_after_push);
-    println!("Stack front index: {}", stack_after_push.front_index);
-    println!("Stack back index: {}", stack_after_push.back_index);
-
-    // Execute the task
-    let execute_ix = Instruction::new_with_borsh(
-        program_id,
-        &VerifierInstruction::Execute,
-        vec![AccountMeta::new(stack_account.pubkey(), false)],
-    );
-
-    let execute_tx = Transaction::new_signed_with_payer(
-        &[execute_ix],
-        Some(&payer.pubkey()),
-        &[&payer],
-        client.get_latest_blockhash()?,
-    );
-
-    let execute_signature = client.send_and_confirm_transaction(&execute_tx)?;
-    println!("\nTask executed: {}", execute_signature);
-
-    // Check final stack state
-    let account_data = client
-        .get_account_data(&stack_account.pubkey())
-        .map_err(ClientError::SolanaClientError)?;
-    let stack = BidirectionalStackAccount::cast(&account_data);
+    let stack = BidirectionalStackAccount::cast_mut(&mut account_data);
+    let result_bytes = stack.borrow_front();
+    let result = Felt::from_bytes_be_slice(result_bytes);
+    stack.pop_front();
+    stack.pop_front();
+    stack.pop_front();
+    println!("\nPoseidon hash result: {}", result);
     println!("Stack front index: {}", stack.front_index);
     println!("Stack back index: {}", stack.back_index);
 
-    // Read and display the result
-    // Poseidon hash returns a Felt value, we'll display it as a hex string
-    let result = Felt::from_bytes_be(stack.borrow_front().try_into().unwrap());
+    // The expected output should match the result we got (from the test for 3 inputs)
+    let expected_result =
+        Felt::from_hex("0x26e3ad8b876e02bc8a4fc43dad40a8f81a6384083cabffa190bcf40d512ae1d")
+            .unwrap();
 
-    // Since Felt.to_bytes_be() is used in the PoseidonTask::execute method,
-    // we need to convert the bytes back to a readable format
-    println!("\nPoseidon hash result for value {}: {:?}", value, result);
-
-    println!("\nPoseidon hash operation successfully executed on Solana!");
+    assert_eq!(result, expected_result);
+    println!("\nPoseidon hash successfully executed on Solana!");
 
     Ok(())
 }
