@@ -157,6 +157,8 @@ fn main() -> client::Result<()> {
     let result_bytes = stack.borrow_front();
     let result = Felt::from_bytes_be(&result_bytes.try_into().unwrap());
     stack.pop_front();
+    stack.pop_front();
+    stack.pop_front();
     println!("\nHades permutation result: {}", result);
     println!("Stack front index: {}", stack.front_index);
     println!("Stack back index: {}", stack.back_index);

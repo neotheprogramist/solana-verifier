@@ -67,5 +67,7 @@ fn test_hades_permutation_verbose() {
 
     // Clean up
     stack.pop_front();
+    stack.pop_front();
+    stack.pop_front();
     assert_eq!(stack.front_index, 0, "Stack should be empty after test");
 }

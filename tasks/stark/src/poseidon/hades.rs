@@ -90,7 +90,9 @@ impl Executable for HadesPermutation {
 
                     self.constants_index += Self::N_ROUND_CONSTANTS_COLS;
                 }
-                stack.push_front(&self.state[0].to_bytes_be()).unwrap();
+                self.state.iter().rev().for_each(|value| {
+                    stack.push_front(&value.to_bytes_be()).unwrap();
+                });
                 self.phase = HadesPhase::Finished;
             }
             HadesPhase::Finished => {}
