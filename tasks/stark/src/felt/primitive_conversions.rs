@@ -59,9 +59,6 @@ impl From<i128> for Felt {
 #[derive(Debug, Copy, Clone)]
 pub struct PrimitiveFromFeltError;
 
-#[cfg(feature = "std")]
-impl std::error::Error for PrimitiveFromFeltError {}
-
 impl core::fmt::Display for PrimitiveFromFeltError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(f, "Failed to convert `Felt` into primitive type")

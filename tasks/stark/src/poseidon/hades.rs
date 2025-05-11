@@ -63,8 +63,8 @@ impl Executable for HadesPermutation {
                 // Partial rounds
                 if self.round_index < Self::N_PARTIAL_ROUNDS {
                     // Perform partial round
-                    self.state[2] = &self.state[2] + &Self::ROUND_CONSTANTS[self.constants_index];
-                    self.state[2] = &self.state[2].square() * &self.state[2];
+                    self.state[2] = self.state[2] + Self::ROUND_CONSTANTS[self.constants_index];
+                    self.state[2] = self.state[2].square() * self.state[2];
 
                     // Mix step
                     Self::mix(&mut self.state);
@@ -86,8 +86,8 @@ impl Executable for HadesPermutation {
                 if self.round_index < Self::N_FULL_ROUNDS / 2 {
                     // Perform full round
                     for (i, value) in self.state.iter_mut().enumerate() {
-                        *value = &(*value) + &Self::ROUND_CONSTANTS[self.constants_index + i];
-                        *value = &(*value).square() * &*value;
+                        *value = *value + Self::ROUND_CONSTANTS[self.constants_index + i];
+                        *value = (*value).square() * *value;
                     }
 
                     // Mix step
