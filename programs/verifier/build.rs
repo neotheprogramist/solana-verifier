@@ -40,7 +40,7 @@ fn main() {
                     crate_name.to_string()
                 };
 
-            visit_dir(&src_dir, &mut types, &effective_crate_name);
+            visit_dir(&src_dir, &mut types, &effective_crate_name, &src_dir);
         }
     }
 
@@ -154,8 +154,8 @@ fn get_workspace_members(workspace_root: &Path) -> Vec<PathBuf> {
                             if member.contains('*') {
                                 let base_path = member.split('*').next().unwrap_or("");
                                 if let Ok(entries) = fs::read_dir(workspace_root.join(base_path)) {
-                                    for entry in entries.flatten() {
-                                        let path = entry.path();
+                                    // Using flatten() instead of manual if let
+                                    for path in entries.flatten().map(|entry| entry.path()) {
                                         if path.is_dir() && path.join("Cargo.toml").exists() {
                                             let rel_path =
                                                 pathdiff::diff_paths(&path, workspace_root)
@@ -181,18 +181,16 @@ fn get_workspace_members(workspace_root: &Path) -> Vec<PathBuf> {
 }
 
 // Helper function to recursively visit directories and find Rust files
-fn visit_dir(dir: &Path, types: &mut HashSet<(String, String)>, crate_name: &str) {
+fn visit_dir(dir: &Path, types: &mut HashSet<(String, String)>, crate_name: &str, base_dir: &Path) {
     if dir.is_dir() {
         if let Ok(entries) = fs::read_dir(dir) {
-            for entry in entries {
-                if let Ok(entry) = entry {
-                    let path = entry.path();
-                    if path.is_dir() {
-                        visit_dir(&path, types, crate_name);
-                    } else if let Some(extension) = path.extension() {
-                        if extension == "rs" {
-                            find_executable_types(&path, types, crate_name);
-                        }
+            // Using flatten() instead of manual if let
+            for path in entries.flatten().map(|entry| entry.path()) {
+                if path.is_dir() {
+                    visit_dir(&path, types, crate_name, base_dir);
+                } else if let Some(extension) = path.extension() {
+                    if extension == "rs" {
+                        find_executable_types(&path, types, crate_name, base_dir);
                     }
                 }
             }
@@ -205,19 +203,44 @@ fn find_executable_types(
     file_path: &Path,
     types: &mut HashSet<(String, String)>,
     crate_name: &str,
+    base_dir: &Path,
 ) {
     let content = fs::read_to_string(file_path).unwrap_or_default();
     let file_name = file_path.file_name().unwrap_or_default().to_string_lossy();
 
-    // Skip the traits.rs file since it defines the trait, but do check lib.rs for implementations
+    // Skip the traits.rs file since it defines the trait
     if file_name == "traits.rs" {
         return;
     }
 
-    // Look for module name - use empty string for lib.rs to create root-level paths
-    let mod_name = if file_name == "lib.rs" {
-        "".to_string()
+    // Determine the module path based on the file path relative to the base directory
+    let module_path = if file_path.starts_with(base_dir) {
+        let rel_path = file_path.strip_prefix(base_dir).unwrap_or(file_path);
+        let components: Vec<String> = rel_path
+            .components()
+            .filter_map(|comp| {
+                let s = comp.as_os_str().to_string_lossy().to_string();
+                if s.ends_with(".rs") {
+                    let stem = Path::new(&s).file_stem()?.to_string_lossy().to_string();
+                    if stem == "mod" {
+                        // Skip mod.rs files when building the path
+                        None
+                    } else if stem != "lib" {
+                        // Include non-lib.rs files
+                        Some(stem)
+                    } else {
+                        // Skip lib.rs files
+                        None
+                    }
+                } else {
+                    Some(s)
+                }
+            })
+            .collect();
+
+        components.join("::")
     } else {
+        // Fallback for files that can't be resolved relative to base_dir
         file_path
             .file_stem()
             .unwrap_or_default()
@@ -265,10 +288,10 @@ fn find_executable_types(
             // If we found a valid implementation and the struct exists
             if !current_struct.is_empty() && struct_names.contains(&current_struct) {
                 // Create the fully qualified path
-                let full_path = if mod_name.is_empty() {
+                let full_path = if module_path.is_empty() {
                     current_struct.clone()
                 } else {
-                    format!("{}::{}", mod_name, current_struct)
+                    format!("{}::{}", module_path, current_struct)
                 };
 
                 // Add the fully qualified name and crate
@@ -287,10 +310,10 @@ fn find_executable_types(
     {
         for struct_name in struct_names {
             // Create the fully qualified path
-            let full_path = if mod_name.is_empty() {
+            let full_path = if module_path.is_empty() {
                 struct_name.clone()
             } else {
-                format!("{}::{}", mod_name, struct_name)
+                format!("{}::{}", module_path, struct_name)
             };
 
             // Add the fully qualified name and crate
