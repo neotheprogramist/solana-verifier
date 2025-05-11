@@ -5,8 +5,7 @@ use utils::{Executable, TypeIdentifiable};
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum HadesPhase {
     FirstHalfFullRounds,
-    PartialRoundsPart1,
-    PartialRoundsPart2,
+    PartialRoundsPart,
     SecondHalfFullRounds,
     Finished,
 }
@@ -71,20 +70,17 @@ impl Executable for HadesPermutation {
 
                     self.constants_index += Self::N_ROUND_CONSTANTS_COLS;
                 }
-                self.phase = HadesPhase::PartialRoundsPart1;
-            }
-            HadesPhase::PartialRoundsPart1 => {
-                // Partial rounds part 1
-                for _ in 0..Self::N_PARTIAL_ROUNDS / 2 {
+                // Partial rounds
+                for _ in 0..15 {
                     self.partial_round();
 
                     self.constants_index += 1;
                 }
-                self.phase = HadesPhase::PartialRoundsPart2;
+                self.phase = HadesPhase::PartialRoundsPart;
             }
-            HadesPhase::PartialRoundsPart2 => {
-                // Partial rounds part 2
-                for _ in 0..(Self::N_PARTIAL_ROUNDS - Self::N_PARTIAL_ROUNDS / 2) {
+            HadesPhase::PartialRoundsPart => {
+                // Partial rounds
+                for _ in 0..(Self::N_PARTIAL_ROUNDS - 30) {
                     self.partial_round();
 
                     self.constants_index += 1;
@@ -92,14 +88,20 @@ impl Executable for HadesPermutation {
                 self.phase = HadesPhase::SecondHalfFullRounds;
             }
             HadesPhase::SecondHalfFullRounds => {
+                // Partial rounds
+                for _ in 0..15 {
+                    self.partial_round();
+
+                    self.constants_index += 1;
+                }
                 // Second half of full rounds
                 for _ in 0..Self::N_FULL_ROUNDS / 2 {
                     self.full_round();
 
                     self.constants_index += Self::N_ROUND_CONSTANTS_COLS;
                 }
-                self.phase = HadesPhase::Finished;
                 stack.push_front(&self.state[0].to_bytes_be()).unwrap();
+                self.phase = HadesPhase::Finished;
             }
             HadesPhase::Finished => {}
         }
