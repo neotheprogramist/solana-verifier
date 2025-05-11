@@ -14,11 +14,6 @@ use size_of::SizeOf;
 #[cfg(any(feature = "prime-bigint", test))]
 use {lazy_static::lazy_static, num_traits::Num};
 
-#[cfg(feature = "num-traits")]
-mod num_traits_impl;
-#[cfg(feature = "papyrus-serialization")]
-mod papyrus_serialization;
-
 #[cfg(any(feature = "prime-bigint", test))]
 lazy_static! {
     pub static ref CAIRO_PRIME_BIGINT: BigInt = BigInt::from_str_radix(
