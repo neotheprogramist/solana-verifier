@@ -81,7 +81,7 @@ pub fn process_instruction(
     accounts: &[AccountInfo],
     instruction_data: &[u8],
 ) -> ProgramResult {
-    msg!("Hello World Rust program entrypoint");
+    msg!("Verifier Rust program entrypoint");
 
     // Unpack the instruction
     let instruction = VerifierInstruction::try_from_slice(instruction_data)?;

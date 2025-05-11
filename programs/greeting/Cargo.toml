@@ -11,8 +11,6 @@ no-entrypoint = []
 
 [dependencies]
 borsh.workspace = true
-ciborium.workspace = true
-serde.workspace = true
 solana-program.workspace = true
 thiserror.workspace = true
 

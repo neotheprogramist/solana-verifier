@@ -1,6 +1,5 @@
 #![allow(deprecated)]
 
-use serde_json;
 use solana_client::rpc_client::RpcClient;
 use solana_program::{
     bpf_loader_upgradeable,

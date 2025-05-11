@@ -70,8 +70,7 @@ fn main() {
 
     // Read the 32-bit type tag from the first 4 bytes
     dispatch_code
-        .push_str("    let type_tag_bytes: [u8; 4] = [data[0], data[1], data[2], data[3]];\n");
-    dispatch_code.push_str("    let type_tag = u32::from_be_bytes(type_tag_bytes);\n");
+        .push_str("    let type_tag = u32::from_be_bytes(data[0..4].try_into().unwrap());\n");
 
     dispatch_code.push_str("    match type_tag {\n");
 
@@ -87,7 +86,9 @@ fn main() {
             "            // Execute the task using unsafe to get around borrow checker\n",
         );
         dispatch_code.push_str(&format!(
-                "            unsafe {{\n                let obj = {}::{}::cast_mut(&mut data[4..]);\n                let returned_tasks = obj.execute(&mut *stack_ptr);\n                tasks.extend(returned_tasks);\n                is_finished = obj.is_finished();\n            }}\n",
+                "            unsafe {{\n                let obj = {}::{}::cast_mut(&mut data[4..(4 + std::mem::size_of::<{}::{}>())]);\n                let returned_tasks = obj.execute(&mut *stack_ptr);\n                tasks.extend(returned_tasks);\n                is_finished = obj.is_finished();\n            }}\n",
+                crate_name,
+                type_name,
                 crate_name,
                 type_name
             ));
