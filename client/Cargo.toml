@@ -12,6 +12,7 @@ solana-client = "2.2.1"
 solana-program.workspace = true
 solana-sdk = "2.2.1"
 thiserror.workspace = true
+starknet-types-core = { version = "0.1.8", features = ["hash"] }
 
 greeting.workspace = true
 verifier.workspace = true
