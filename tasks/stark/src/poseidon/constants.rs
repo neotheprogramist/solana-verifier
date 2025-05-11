@@ -18,7 +18,7 @@ impl HadesPermutation {
     pub const N_ROUND_CONSTANTS_ROWS: usize = 91;
     pub const N_ROUND_CONSTANTS_COLS: usize = 3;
 
-        // The following constants are used for an optimized version of Poseidon hash, as suggested in Appendix B from
+    // The following constants are used for an optimized version of Poseidon hash, as suggested in Appendix B from
     // the Poseidon paper (available at https://eprint.iacr.org/2019/458.pdf).
     // In partial rounds, instead of adding constants to all the state, we add a constant just to the state
     // to which the S box is applied (non-linear). The constants for the other positions are "moved forward" and

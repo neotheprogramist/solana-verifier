@@ -2,11 +2,18 @@ use crate::felt::Felt;
 use utils::{impl_type_identifiable, BidirectionalStack};
 use utils::{Executable, TypeIdentifiable};
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HadesPhase {
+    FirstHalfFullRounds,
+    PartialRounds,
+    SecondHalfFullRounds,
+    Finished,
+}
+
 #[repr(C)]
 pub struct HadesPermutation {
     state: [Felt; 3],
-    phase: u8, // 0: first half full rounds, 1: partial rounds, 2: second half full rounds
-    round_index: usize,
+    phase: HadesPhase,
     constants_index: usize,
 }
 
@@ -16,8 +23,7 @@ impl HadesPermutation {
     pub fn new(state: [Felt; 3]) -> Self {
         Self {
             state,
-            phase: 0,
-            round_index: 0,
+            phase: HadesPhase::FirstHalfFullRounds,
             constants_index: 0,
         }
     }
@@ -30,85 +36,68 @@ impl HadesPermutation {
         state[1] = &t - &state[1].double();
         state[2] = &t - (&state[2] + &state[2] + &state[2]);
     }
+
+    #[inline(always)]
+    fn full_round(&mut self) {
+        // Perform full round
+        for (i, value) in self.state.iter_mut().enumerate() {
+            *value = &(*value) + &Self::ROUND_CONSTANTS[self.constants_index + i];
+            *value = &(*value).square() * &*value;
+        }
+
+        // Mix step is common for both round types
+        Self::mix(&mut self.state);
+    }
+
+    #[inline(always)]
+    fn partial_round(&mut self) {
+        // Perform partial round
+        self.state[2] = self.state[2] + Self::ROUND_CONSTANTS[self.constants_index];
+        self.state[2] = self.state[2].square() * self.state[2];
+
+        // Mix step
+        Self::mix(&mut self.state);
+    }
 }
 
 impl Executable for HadesPermutation {
     fn execute<T: BidirectionalStack>(&mut self, stack: &mut T) -> Vec<Vec<u8>> {
         match self.phase {
-            0 => {
+            HadesPhase::FirstHalfFullRounds => {
                 // First half of full rounds
-                if self.round_index < Self::N_FULL_ROUNDS / 2 {
-                    // Perform full round
-                    for (i, value) in self.state.iter_mut().enumerate() {
-                        *value = &(*value) + &Self::ROUND_CONSTANTS[self.constants_index + i];
-                        *value = &(*value).square() * &*value;
-                    }
+                for _ in 0..Self::N_FULL_ROUNDS / 2 {
+                    self.full_round();
 
-                    // Mix step is common for both round types
-                    Self::mix(&mut self.state);
-
-                    self.round_index += 1;
                     self.constants_index += Self::N_ROUND_CONSTANTS_COLS;
-
-                    vec![]
-                } else {
-                    // Move to partial rounds phase
-                    self.phase = 1;
-                    self.round_index = 0;
-
-                    vec![]
                 }
+                self.phase = HadesPhase::PartialRounds;
             }
-            1 => {
+            HadesPhase::PartialRounds => {
                 // Partial rounds
-                if self.round_index < Self::N_PARTIAL_ROUNDS {
-                    // Perform partial round
-                    self.state[2] = self.state[2] + Self::ROUND_CONSTANTS[self.constants_index];
-                    self.state[2] = self.state[2].square() * self.state[2];
+                for _ in 0..Self::N_PARTIAL_ROUNDS {
+                    self.partial_round();
 
-                    // Mix step
-                    Self::mix(&mut self.state);
-
-                    self.round_index += 1;
                     self.constants_index += 1;
-
-                    vec![]
-                } else {
-                    // Move to second half of full rounds phase
-                    self.phase = 2;
-                    self.round_index = 0;
-
-                    vec![]
                 }
+                self.phase = HadesPhase::SecondHalfFullRounds;
             }
-            2 => {
+            HadesPhase::SecondHalfFullRounds => {
                 // Second half of full rounds
-                if self.round_index < Self::N_FULL_ROUNDS / 2 {
-                    // Perform full round
-                    for (i, value) in self.state.iter_mut().enumerate() {
-                        *value = *value + Self::ROUND_CONSTANTS[self.constants_index + i];
-                        *value = (*value).square() * *value;
-                    }
+                for _ in 0..Self::N_FULL_ROUNDS / 2 {
+                    self.full_round();
 
-                    // Mix step
-                    Self::mix(&mut self.state);
-
-                    self.round_index += 1;
                     self.constants_index += Self::N_ROUND_CONSTANTS_COLS;
-
-                    vec![]
-                } else {
-                    // Push the result to the stack
-                    self.round_index += 1;
-                    stack.push_front(&self.state[0].to_bytes_be()).unwrap();
-                    vec![]
                 }
+                self.phase = HadesPhase::Finished;
+                stack.push_front(&self.state[0].to_bytes_be()).unwrap();
             }
-            _ => unreachable!(),
+            HadesPhase::Finished => {}
         }
+
+        vec![]
     }
 
     fn is_finished(&mut self) -> bool {
-        self.phase == 2 && self.round_index > Self::N_FULL_ROUNDS / 2
+        self.phase == HadesPhase::Finished
     }
 }
