@@ -70,7 +70,7 @@ impl Executable for HadesPermutation {
                     self.constants_index += Self::N_ROUND_CONSTANTS_COLS;
                 }
                 // Partial rounds
-                for _ in 0..(Self::N_PARTIAL_ROUNDS / 2) {
+                for _ in 0..Self::N_PARTIAL_ROUNDS / 2 {
                     self.partial_round();
 
                     self.constants_index += 1;

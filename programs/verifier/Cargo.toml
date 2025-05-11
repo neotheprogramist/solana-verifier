@@ -11,8 +11,11 @@ no-entrypoint = []
 
 [dependencies]
 borsh.workspace = true
+lambdaworks-crypto = { version = "0.12.0", default-features = false }
+lambdaworks-math = { version = "0.12.0", default-features = false }
 solana-program.workspace = true
 thiserror.workspace = true
+starknet-types-core = { version = "0.1.8", features = ["hash"] }
 
 utils.workspace = true
 
