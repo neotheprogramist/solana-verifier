@@ -32,3 +32,40 @@ fn test_hades_permutation() {
 
     assert_eq!(result, expected_result);
 }
+
+#[test]
+fn test_hades_permutation_verbose() {
+    // Initialize a state to test
+    let state = [
+        Felt::from_hex("0x9").unwrap(),
+        Felt::from_hex("0xb").unwrap(),
+        Felt::from_hex("0x2").unwrap(),
+    ];
+
+    // Create a stack and push the Hades permutation task
+    let mut stack = BidirectionalStackAccount::default();
+    stack.push_task(HadesPermutation::new(state));
+
+    // Execute until completion
+    let mut steps = 0;
+    while !stack.is_empty_back() {
+        stack.execute();
+        steps += 1;
+    }
+
+    // Get the result from the stack
+    let bytes = stack.borrow_front();
+    let result = Felt::from_bytes_be_slice(bytes);
+
+    // The expected output should match the result we got
+    let expected_result =
+        Felt::from_hex("0x510f3a3faf4084e3b1e95fd44c30746271b48723f7ea9c8be6a9b6b5408e7e6")
+            .unwrap();
+
+    assert_eq!(result, expected_result);
+    assert!(steps > 0, "Should have executed at least one step");
+
+    // Clean up
+    stack.pop_front();
+    assert_eq!(stack.front_index, 0, "Stack should be empty after test");
+}

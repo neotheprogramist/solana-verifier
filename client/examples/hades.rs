@@ -143,11 +143,7 @@ fn main() -> client::Result<()> {
         );
 
         let _execute_signature = client.send_and_confirm_transaction(&execute_tx)?;
-        print!(".");
-        steps += 1;
-        if steps % 10 == 0 {
-            println!(" {}", steps);
-        }
+        println!(".");
 
         // Check stack state
         let account_data = client
@@ -166,9 +162,15 @@ fn main() -> client::Result<()> {
         .map_err(ClientError::SolanaClientError)?;
     let stack = BidirectionalStackAccount::cast(&account_data);
     let result_bytes = stack.borrow_front();
-    let felt = Felt::from_bytes_be(&result_bytes.try_into().unwrap());
-    println!("\nHades permutation result: {}", felt);
+    let result = Felt::from_bytes_be(&result_bytes.try_into().unwrap());
+    println!("\nHades permutation result: {}", result);
 
+    // The expected output should match the result we got
+    let expected_result =
+        Felt::from_hex("0x510f3a3faf4084e3b1e95fd44c30746271b48723f7ea9c8be6a9b6b5408e7e6")
+            .unwrap();
+
+    assert_eq!(result, expected_result);
     println!("\nHades permutation successfully executed on Solana!");
 
     Ok(())
