@@ -5,7 +5,6 @@ use utils::{Executable, TypeIdentifiable};
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum HadesPhase {
     FirstHalfFullRounds,
-    PartialRoundsPart,
     SecondHalfFullRounds,
     Finished,
 }
@@ -71,16 +70,7 @@ impl Executable for HadesPermutation {
                     self.constants_index += Self::N_ROUND_CONSTANTS_COLS;
                 }
                 // Partial rounds
-                for _ in 0..15 {
-                    self.partial_round();
-
-                    self.constants_index += 1;
-                }
-                self.phase = HadesPhase::PartialRoundsPart;
-            }
-            HadesPhase::PartialRoundsPart => {
-                // Partial rounds
-                for _ in 0..(Self::N_PARTIAL_ROUNDS - 30) {
+                for _ in 0..(Self::N_PARTIAL_ROUNDS / 2) {
                     self.partial_round();
 
                     self.constants_index += 1;
@@ -89,7 +79,7 @@ impl Executable for HadesPermutation {
             }
             HadesPhase::SecondHalfFullRounds => {
                 // Partial rounds
-                for _ in 0..15 {
+                for _ in 0..(Self::N_PARTIAL_ROUNDS - Self::N_PARTIAL_ROUNDS / 2) {
                     self.partial_round();
 
                     self.constants_index += 1;
