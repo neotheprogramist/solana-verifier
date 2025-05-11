@@ -117,14 +117,6 @@ fn main() -> client::Result<()> {
     let push_signature = client.send_and_confirm_transaction(&push_tx)?;
     println!("\nHades task pushed: {}", push_signature);
 
-    // Check stack state after pushing
-    let account_data_after_push = client
-        .get_account_data(&stack_account.pubkey())
-        .map_err(ClientError::SolanaClientError)?;
-    let stack_after_push = BidirectionalStackAccount::cast(&account_data_after_push);
-    println!("Stack front index: {}", stack_after_push.front_index);
-    println!("Stack back index: {}", stack_after_push.back_index);
-
     // Execute until task is complete
     let mut steps = 0;
     loop {
@@ -144,6 +136,7 @@ fn main() -> client::Result<()> {
 
         let _execute_signature = client.send_and_confirm_transaction(&execute_tx)?;
         println!(".");
+        steps += 1;
 
         // Check stack state
         let account_data = client
@@ -157,13 +150,16 @@ fn main() -> client::Result<()> {
     }
 
     // Read and display the result
-    let account_data = client
+    let mut account_data = client
         .get_account_data(&stack_account.pubkey())
         .map_err(ClientError::SolanaClientError)?;
-    let stack = BidirectionalStackAccount::cast(&account_data);
+    let stack = BidirectionalStackAccount::cast_mut(&mut account_data);
     let result_bytes = stack.borrow_front();
     let result = Felt::from_bytes_be(&result_bytes.try_into().unwrap());
+    stack.pop_front();
     println!("\nHades permutation result: {}", result);
+    println!("Stack front index: {}", stack.front_index);
+    println!("Stack back index: {}", stack.back_index);
 
     // The expected output should match the result we got
     let expected_result =
