@@ -1,6 +1,6 @@
 use utils::{AccountCast, BidirectionalStack};
 
-use crate::error::VerifierError;
+use crate::{error::VerifierError};
 
 const CAPACITY: usize = 1024;
 const LENGTH_SIZE: usize = 2;

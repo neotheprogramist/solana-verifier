@@ -31,6 +31,20 @@ fn test_multiply_operation() {
 }
 
 #[test]
+fn test_factorial_operation() {
+    let mut stack = BidirectionalStackAccount::default();
+    stack.push_task(factorial::Factorial::new(5));
+
+    while !stack.is_empty_back() {
+        stack.execute();
+    }
+
+    let result = u128::from_be_bytes(stack.borrow_front().try_into().unwrap());
+    assert_eq!(result, 120); // 5! = 5 * 4 * 3 * 2 * 1 = 120
+    stack.pop_front();
+}
+
+#[test]
 fn test_exponentiation_operation() {
     let mut stack = BidirectionalStackAccount::default();
     stack.push_task(exp::Exp::new(2, 10));
