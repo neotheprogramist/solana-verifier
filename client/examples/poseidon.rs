@@ -152,7 +152,7 @@ fn main() -> client::Result<()> {
         println!("Pushed zero value");
     }
 
-    let poseidon_task = PoseidonHashMany::new(&inputs);
+    let poseidon_task = PoseidonHashMany::new(inputs.len());
 
     // Push the task to the stack
     let push_task_ix = Instruction::new_with_borsh(
