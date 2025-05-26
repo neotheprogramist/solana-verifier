@@ -20,7 +20,7 @@ impl Default for BidirectionalStackAccount {
             proof: StarkProof::default(),
             front_index: 0,
             back_index: CAPACITY,
-            buffer: [1; CAPACITY],
+            buffer: [0; CAPACITY],
         }
     }
 }

@@ -17,7 +17,7 @@ use stark::{
         air::public_memory::{Page, PublicInput},
         stark::{
             config::StarkConfig,
-            types::{cast_struct_to_slice, StarkProof},
+            types::{cast_struct_to_slice, StarkProof, StarkUnsentCommitment, StarkWitness},
         },
     },
 };
@@ -97,6 +97,8 @@ fn main() -> client::Result<()> {
             continuous_page_headers: FunVec::default(),
         },
         config: StarkConfig::default(),
+        unsent_commitment: StarkUnsentCommitment::default(),
+        witness: StarkWitness::default(),
     };
     let proof_bytes = cast_struct_to_slice(&mut proof);
     let instructions = proof_bytes

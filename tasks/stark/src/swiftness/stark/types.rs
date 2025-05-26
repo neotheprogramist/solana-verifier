@@ -1,7 +1,10 @@
-use crate::swiftness::air::public_memory::PublicInput;
-
 use super::config::StarkConfig;
-
+use crate::felt::Felt;
+use crate::funvec::{FunVec, FUNVEC_OODS};
+use crate::swiftness::air::public_memory::PublicInput;
+use crate::swiftness::air::trace;
+use crate::swiftness::commitment::table;
+use crate::swiftness::{fri, pow::pow};
 pub fn cast_slice_to_struct(slice: &mut [u8]) -> &mut StarkProof {
     assert_eq!(slice.len(), std::mem::size_of::<StarkProof>());
     unsafe { &mut *(slice.as_mut_ptr() as *mut StarkProof) }
@@ -17,8 +20,30 @@ pub fn cast_struct_to_slice(proof: &mut StarkProof) -> &mut [u8] {
 pub struct StarkProof {
     pub config: StarkConfig,
     pub public_input: PublicInput,
+    pub unsent_commitment: StarkUnsentCommitment,
+    pub witness: StarkWitness,
 }
 
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct StarkUnsentCommitment {
+    pub traces: trace::UnsentCommitment,
+    pub composition: Felt,
+    // n_oods_values elements. The i-th value is the evaluation of the i-th mask item polynomial at
+    // the OODS point, where the mask item polynomial is the interpolation polynomial of the
+    // corresponding column shifted by the corresponding row_offset.
+    pub oods_values: FunVec<Felt, FUNVEC_OODS>,
+    pub fri: fri::types::UnsentCommitment,
+    pub proof_of_work: pow::UnsentCommitment,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
+pub struct StarkWitness {
+    pub traces_decommitment: trace::Decommitment,
+    pub traces_witness: trace::Witness,
+    pub composition_decommitment: table::types::Decommitment,
+    pub composition_witness: table::types::Witness,
+    pub fri_witness: fri::types::Witness,
+}
 #[cfg(test)]
 mod test {
     use crate::{
@@ -28,7 +53,10 @@ mod test {
             air::public_memory::{Page, PublicInput},
             stark::{
                 config::StarkConfig,
-                types::{cast_slice_to_struct, cast_struct_to_slice, StarkProof},
+                types::{
+                    cast_slice_to_struct, cast_struct_to_slice, StarkProof, StarkUnsentCommitment,
+                    StarkWitness,
+                },
             },
         },
     };
@@ -48,7 +76,10 @@ mod test {
                 continuous_page_headers: FunVec::default(),
             },
             config: StarkConfig::default(),
+            unsent_commitment: StarkUnsentCommitment::default(),
+            witness: StarkWitness::default(),
         };
+        println!("proof: {:?}", proof);
         let mut proof_clone = proof.clone();
         let mut bytes = cast_struct_to_slice(&mut proof_clone);
 
