@@ -129,7 +129,7 @@ fn main() -> client::Result<()> {
             client.get_latest_blockhash()?,
         );
 
-        let push_data_sig = client.send_and_confirm_transaction(&push_data_tx)?;
+        let _push_data_sig = client.send_and_confirm_transaction(&push_data_tx)?;
         println!("Pushed input value: {}", input);
     }
 
@@ -148,7 +148,7 @@ fn main() -> client::Result<()> {
             client.get_latest_blockhash()?,
         );
 
-        let push_data_sig = client.send_and_confirm_transaction(&push_data_tx)?;
+        let _push_data_sig = client.send_and_confirm_transaction(&push_data_tx)?;
         println!("Pushed zero value");
     }
 

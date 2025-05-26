@@ -1,6 +1,8 @@
 use utils::{impl_type_identifiable, BidirectionalStack, Executable, TypeIdentifiable};
 
-use crate::{felt::Felt, poseidon::PoseidonHashMany};
+use crate::{
+    felt::Felt, poseidon::PoseidonHashMany, swiftness::stark::types::cast_slice_to_struct,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum HashPublicInputsStep {
@@ -69,5 +71,41 @@ impl Executable for HashPublicInputs {
 
     fn is_finished(&mut self) -> bool {
         self.step == HashPublicInputsStep::Done
+    }
+}
+
+#[repr(C)]
+pub struct VerifyPublicInput {}
+
+impl_type_identifiable!(VerifyPublicInput);
+
+impl VerifyPublicInput {
+    pub fn new() -> Self {
+        Self {}
+    }
+}
+
+impl Executable for VerifyPublicInput {
+    fn execute<T: BidirectionalStack>(&mut self, stack: &mut T) -> Vec<Vec<u8>> {
+        let proof_reference = stack.get_proof_reference();
+        let proof = cast_slice_to_struct(proof_reference);
+        let public_segments = &proof.public_input.segments;
+        // let initial_pc = public_segments.get(0).unwrap().begin_addr;
+        // let initial_fp = public_segments.get(1).unwrap().begin_addr;
+
+        // let final_ap = public_segments.get(1).unwrap().stop_ptr;
+        let output_start = public_segments.get(2).unwrap().begin_addr;
+        let output_end = public_segments.get(3).unwrap().stop_ptr;
+        let memory = proof.public_input.main_page.0.as_slice();
+        let output_len: usize = (output_end - output_start).try_into().unwrap();
+        let _output: Vec<Felt> = memory[memory.len() - output_len..]
+            .iter()
+            .map(|m| m.value)
+            .collect();
+        vec![]
+    }
+
+    fn is_finished(&mut self) -> bool {
+        true
     }
 }
