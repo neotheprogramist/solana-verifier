@@ -8,7 +8,8 @@ use solana_sdk::{
     system_instruction,
     transaction::Transaction,
 };
-use stark::swiftness::stark::types::cast_struct_to_slice;
+use utils::Executable;
+use stark::{felt::Felt, stark_proof::VerifyPublicInput, swiftness::stark::types::cast_struct_to_slice};
 use swiftness_proof_parser::{json_parser, transform::TransformTo, StarkProof as StarkProofParser};
 use utils::AccountCast;
 use utils::BidirectionalStack;
@@ -86,19 +87,72 @@ fn main() -> client::Result<()> {
             client.send_and_confirm_transaction(&set_proof_tx)?;
         println!("Set proof: {}: {}", i, set_proof_signature);
     }
+    
+    let task = VerifyPublicInput::new(Felt::from_hex("0x1").unwrap(), Felt::from_hex("0x2").unwrap());
+    
 
-    let account_data_after_set_proof = client
+    let verify_public_input_ix = Instruction::new_with_borsh(
+        program_id,
+        &VerifierInstruction::PushTask(task.to_vec_with_type_tag()),
+        vec![AccountMeta::new(stack_account.pubkey(), false)],
+    );
+
+    let verify_public_input_tx = Transaction::new_signed_with_payer(
+        &[verify_public_input_ix],
+        Some(&payer.pubkey()),
+        &[&payer],
+        client.get_latest_blockhash()?,
+    );
+    let verify_public_input_signature: solana_sdk::signature::Signature =
+        client.send_and_confirm_transaction(&verify_public_input_tx)?;
+    println!("Verify public input: {:?}", verify_public_input_signature);
+
+    let mut steps = 0;
+    loop {
+        // Execute the task
+        let execute_ix = Instruction::new_with_borsh(
+            program_id,
+            &VerifierInstruction::Execute,
+            vec![AccountMeta::new(stack_account.pubkey(), false)],
+        );
+
+        let execute_tx = Transaction::new_signed_with_payer(
+            &[execute_ix],
+            Some(&payer.pubkey()),
+            &[&payer],
+            client.get_latest_blockhash()?,
+        );
+
+        let _execute_signature = client.send_and_confirm_transaction(&execute_tx)?;
+        println!(".");
+        steps += 1;
+
+        // Check stack state
+        let account_data = client
+            .get_account_data(&stack_account.pubkey())
+            .map_err(ClientError::SolanaClientError)?;
+        let stack = BidirectionalStackAccount::cast(&account_data);
+        if stack.is_empty_back() {
+            println!("\nExecution complete after {} steps", steps);
+            break;
+        }
+    }
+
+    // Read and display the result
+    let mut account_data = client
         .get_account_data(&stack_account.pubkey())
         .map_err(ClientError::SolanaClientError)?;
+    let stack = BidirectionalStackAccount::cast_mut(&mut account_data);
+    let result_program_hash = Felt::from_bytes_be_slice(stack.borrow_front());
+    stack.pop_front();
+    let result_output_hash = Felt::from_bytes_be_slice(stack.borrow_front());
+    stack.pop_front();
+    println!("\nProgram Hash: {:?}", result_program_hash);
+    println!("Output Hash: {:?}", result_output_hash);
+    println!("Stack front index: {}", stack.front_index);
+    println!("Stack back index: {}", stack.back_index);
 
-    let stack = BidirectionalStackAccount::cast(&account_data_after_set_proof);
+    println!("\nHash Public Inputs successfully executed on Solana!");
 
-    println!("Proof: {:?}", stack.proof);
-    println!("Stack front: {:?}", stack.borrow_front());
-    println!("Stack back: {:?}", stack.borrow_back());
-    println!("Stack front index: {:?}", stack.front_index);
-    println!("Stack back index: {:?}", stack.back_index);
-    println!("Stack is empty front: {:?}", stack.is_empty_front());
-    println!("Stack is empty back: {:?}", stack.is_empty_back());
     Ok(())
 }

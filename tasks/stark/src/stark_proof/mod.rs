@@ -77,13 +77,31 @@ impl Executable for HashPublicInputs {
 }
 
 #[repr(C)]
-pub struct VerifyPublicInput {}
+pub struct VerifyPublicInput {
+    pub a: Felt,
+    pub b: Felt,
+}
 
 impl_type_identifiable!(VerifyPublicInput);
 
 impl VerifyPublicInput {
-    pub fn new() -> Self {
-        Self {}
+    pub fn new(a: Felt, b: Felt) -> Self {
+        Self { a, b }
+    }
+    fn push_input<T: BidirectionalStack>(inputs: &[Felt], stack: &mut T) {
+        // Pad input with 1 followed by 0's (if necessary).
+        let mut values = inputs.to_owned();
+        values.push(Felt::ONE);
+        values.resize(values.len().div_ceil(2) * 2, Felt::ZERO);
+
+        assert!(values.len() % 2 == 0);
+
+        values.iter().rev().for_each(|value| {
+            stack.push_front(&value.to_bytes_be()).unwrap();
+        });
+        stack.push_front(&Felt::ZERO.to_bytes_be()).unwrap();
+        stack.push_front(&Felt::ZERO.to_bytes_be()).unwrap();
+        stack.push_front(&Felt::ZERO.to_bytes_be()).unwrap();
     }
 }
 
@@ -92,19 +110,17 @@ impl Executable for VerifyPublicInput {
         let proof_reference: &mut [u8] = stack.get_proof_reference();
         let proof: &mut StarkProof = cast_slice_to_struct::<StarkProof>(proof_reference);
         let public_segments = &proof.public_input.segments;
-        // let initial_pc = public_segments.get(0).unwrap().begin_addr;
-        // let initial_fp = public_segments.get(1).unwrap().begin_addr;
-
-        // let final_ap = public_segments.get(1).unwrap().stop_ptr;
         let output_start = public_segments.get(2).unwrap().begin_addr;
-        let output_end = public_segments.get(3).unwrap().stop_ptr;
-        let memory = proof.public_input.main_page.0.as_slice();
+        let output_end = public_segments.get(2).unwrap().stop_ptr;
         let output_len: usize = (output_end - output_start).try_into().unwrap();
-        let _output: Vec<Felt> = memory[memory.len() - output_len..]
-            .iter()
-            .map(|m| m.value)
-            .collect();
-        vec![]
+        let start = proof.public_input.main_page.0.len() - output_len;
+        let end = proof.public_input.main_page.0.len();
+        let memory = proof.public_input.main_page.0.as_slice();
+        let output = &memory[start..end];
+        let output: Vec<Felt> = output.iter().map(|m| m.value).collect();
+        Self::push_input(&output, stack);
+        Self::push_input(&output, stack);
+        vec![HashPublicInputs::new(output_len, output_len).to_vec_with_type_tag()]
     }
 
     fn is_finished(&mut self) -> bool {

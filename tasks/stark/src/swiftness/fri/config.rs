@@ -2,12 +2,12 @@ use crate::felt::Felt;
 use crate::funvec::FunVec;
 use crate::swiftness::commitment::table;
 
-const MAX_LAST_LAYER_LOG_DEGREE_BOUND: u64 = 15;
-const MAX_FRI_LAYERS: u64 = 15;
+const _MAX_LAST_LAYER_LOG_DEGREE_BOUND: u64 = 15;
+const _MAX_FRI_LAYERS: u64 = 15;
 const MAX_FRI_LAYERS_USIZE: usize = 15;
-const MIN_FRI_LAYERS: u64 = 2;
-const MAX_FRI_STEP: u64 = 4;
-const MIN_FRI_STEP: u64 = 1;
+const _MIN_FRI_LAYERS: u64 = 2;
+const _MAX_FRI_STEP: u64 = 4;
+const _MIN_FRI_STEP: u64 = 1;
 
 #[derive(Debug, Clone, Default, PartialEq, Copy)]
 pub struct Config {
