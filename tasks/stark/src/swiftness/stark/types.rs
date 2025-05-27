@@ -5,13 +5,19 @@ use crate::swiftness::air::public_memory::PublicInput;
 use crate::swiftness::air::trace;
 use crate::swiftness::commitment::table;
 use crate::swiftness::{fri, pow::pow};
-pub fn cast_slice_to_struct(slice: &mut [u8]) -> &mut StarkProof {
-    assert_eq!(slice.len(), std::mem::size_of::<StarkProof>());
-    unsafe { &mut *(slice.as_mut_ptr() as *mut StarkProof) }
+pub fn cast_slice_to_struct<T>(slice: &mut [u8]) -> &mut T
+where
+    T: Sized,
+{
+    assert_eq!(slice.len(), std::mem::size_of::<T>());
+    unsafe { &mut *(slice.as_mut_ptr() as *mut T) }
 }
-pub fn cast_struct_to_slice(proof: &mut StarkProof) -> &mut [u8] {
-    let ptr = proof as *mut StarkProof as *mut u8;
-    let len = std::mem::size_of::<StarkProof>();
+pub fn cast_struct_to_slice<T>(s: &mut T) -> &mut [u8]
+where
+    T: Sized,
+{
+    let ptr = s as *mut T as *mut u8;
+    let len = std::mem::size_of::<T>();
     unsafe { std::slice::from_raw_parts_mut(ptr, len) }
 }
 
@@ -50,7 +56,8 @@ mod test {
         felt::Felt,
         funvec::FunVec,
         swiftness::{
-            air::public_memory::{Page, PublicInput},
+            air::public_memory::PublicInput,
+            air::types::Page,
             stark::{
                 config::StarkConfig,
                 types::{
@@ -69,6 +76,7 @@ mod test {
                 range_check_min: Felt::from(2),
                 range_check_max: Felt::from(3),
                 layout: Felt::from(4),
+                dynamic_params: None,
                 segments: FunVec::default(),
                 padding_addr: Felt::from(5),
                 padding_value: Felt::from(6),
@@ -83,7 +91,7 @@ mod test {
         let mut proof_clone = proof.clone();
         let mut bytes = cast_struct_to_slice(&mut proof_clone);
 
-        let proof_from_bytes = cast_slice_to_struct(&mut bytes);
+        let proof_from_bytes = cast_slice_to_struct::<StarkProof>(&mut bytes);
         assert_eq!(proof_from_bytes, &proof);
     }
 }

@@ -1,7 +1,9 @@
 use utils::{impl_type_identifiable, BidirectionalStack, Executable, TypeIdentifiable};
 
 use crate::{
-    felt::Felt, poseidon::PoseidonHashMany, swiftness::stark::types::cast_slice_to_struct,
+    felt::Felt,
+    poseidon::PoseidonHashMany,
+    swiftness::stark::types::{cast_slice_to_struct, StarkProof},
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -87,8 +89,8 @@ impl VerifyPublicInput {
 
 impl Executable for VerifyPublicInput {
     fn execute<T: BidirectionalStack>(&mut self, stack: &mut T) -> Vec<Vec<u8>> {
-        let proof_reference = stack.get_proof_reference();
-        let proof = cast_slice_to_struct(proof_reference);
+        let proof_reference: &mut [u8] = stack.get_proof_reference();
+        let proof: &mut StarkProof = cast_slice_to_struct::<StarkProof>(proof_reference);
         let public_segments = &proof.public_input.segments;
         // let initial_pc = public_segments.get(0).unwrap().begin_addr;
         // let initial_fp = public_segments.get(1).unwrap().begin_addr;

@@ -9,7 +9,7 @@ pub enum VerifierInstruction {
     /// 0. `[writable]` The verifier account
     Initialize,
 
-    ///
+    /// Sets the proof in the verifier account
     SetProof(usize, Vec<u8>),
 
     /// Pushes a task to the verifier account's bidirectional stack
