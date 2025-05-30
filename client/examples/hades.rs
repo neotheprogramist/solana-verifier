@@ -5,8 +5,8 @@ use solana_sdk::{
     system_instruction,
     transaction::Transaction,
 };
-use stark::felt::Felt;
 use stark::poseidon::hades::HadesPermutation;
+use stark::{felt::Felt, swiftness::stark::types::cast_struct_to_slice};
 use std::{mem::size_of, path::Path};
 use utils::{AccountCast, BidirectionalStack, Executable};
 use verifier::{instruction::VerifierInstruction, state::BidirectionalStackAccount};
@@ -59,9 +59,12 @@ fn main() -> client::Result<()> {
     println!("Account created successfully: {}", signature);
 
     // Initialize the account
+    let mut stack_init_input: [u64; 2] = [0, 65536];
+    let stack_init_bytes = cast_struct_to_slice(&mut stack_init_input);
+    // Initialize the account
     let init_ix = Instruction::new_with_borsh(
         program_id,
-        &VerifierInstruction::Initialize,
+        &VerifierInstruction::SetAccountData(0, stack_init_bytes.to_vec()),
         vec![AccountMeta::new(stack_account.pubkey(), false)],
     );
 
