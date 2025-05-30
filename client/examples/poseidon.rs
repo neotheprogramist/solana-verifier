@@ -5,9 +5,9 @@ use solana_sdk::{
     system_instruction,
     transaction::Transaction,
 };
-use stark::felt::Felt;
 use stark::poseidon::PoseidonHashMany;
-use std::{mem::size_of, path::Path};
+use stark::{felt::Felt, swiftness::stark::types::cast_struct_to_slice};
+use std::{mem::size_of, path::Path, time::Duration};
 use utils::{AccountCast, BidirectionalStack, Executable};
 use verifier::{instruction::VerifierInstruction, state::BidirectionalStackAccount};
 
@@ -57,11 +57,14 @@ fn main() -> client::Result<()> {
 
     let signature = client.send_and_confirm_transaction(&create_account_tx)?;
     println!("Account created successfully: {}", signature);
+    // Cast to stack account to see if initialized correctly
 
+    let mut stack_init_input: [u64; 2] = [0, 65536];
+    let stack_init_bytes = cast_struct_to_slice(&mut stack_init_input);
     // Initialize the account
     let init_ix = Instruction::new_with_borsh(
         program_id,
-        &VerifierInstruction::Initialize,
+        &VerifierInstruction::SetAccountData(0, stack_init_bytes.to_vec()),
         vec![AccountMeta::new(stack_account.pubkey(), false)],
     );
 
@@ -72,11 +75,9 @@ fn main() -> client::Result<()> {
         &[&payer],
         client.get_latest_blockhash()?,
     );
-
     let init_signature = client.send_and_confirm_transaction(&init_tx)?;
     println!("Account initialized: {}", init_signature);
 
-    // Cast to stack account to see if initialized correctly
     let account_data_after_init = client
         .get_account_data(&stack_account.pubkey())
         .map_err(ClientError::SolanaClientError)?;

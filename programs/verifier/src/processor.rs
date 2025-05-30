@@ -96,13 +96,12 @@ impl Processor {
         Ok(())
     }
 
-    pub fn process_set_proof(
+    pub fn process_set_account_data(
         accounts: &[AccountInfo],
         offset: usize,
         data: Vec<u8>,
     ) -> ProgramResult {
         msg!("Processing SetProof instruction");
-
         // Get the account to set proof to
         let accounts_iter = &mut accounts.iter();
         let account = next_account_info(accounts_iter)?;
@@ -127,9 +126,8 @@ pub fn process_instruction(
 
     // Process the instruction
     match instruction {
-        VerifierInstruction::Initialize => Processor::process_initialize(accounts),
-        VerifierInstruction::SetProof(offset, data) => {
-            Processor::process_set_proof(accounts, offset, data)
+        VerifierInstruction::SetAccountData(offset, data) => {
+            Processor::process_set_account_data(accounts, offset, data)
         }
         VerifierInstruction::PushTask(task_data) => {
             Processor::process_push_task(accounts, task_data)

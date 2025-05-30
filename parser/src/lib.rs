@@ -19,7 +19,10 @@ mod tests {
 
     #[test]
     fn test_parse_recursive_with_poseidon() {
+        let input = include_str!("../../example_proof/saya.json");
+        let proof_json = serde_json::from_str::<json_parser::StarkProof>(input).unwrap();
+        let proof = StarkProof::try_from(proof_json).unwrap();
 
-        // println!("{:?}", proof_verifier);
+        let _ = proof.transform_to();
     }
 }

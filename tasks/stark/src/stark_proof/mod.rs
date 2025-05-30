@@ -14,6 +14,17 @@ pub enum HashPublicInputsStep {
     Done,
 }
 
+pub mod segments {
+    pub const BITWISE: usize = 5;
+    pub const EXECUTION: usize = 1;
+    pub const N_SEGMENTS: usize = 7;
+    pub const OUTPUT: usize = 2;
+    pub const PEDERSEN: usize = 3;
+    pub const POSEIDON: usize = 6;
+    pub const PROGRAM: usize = 0;
+    pub const RANGE_CHECK: usize = 4;
+}
+
 #[repr(C)]
 pub struct HashPublicInputs {
     pub step: HashPublicInputsStep,
@@ -75,55 +86,144 @@ impl Executable for HashPublicInputs {
         self.step == HashPublicInputsStep::Done
     }
 }
-
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VerifyPublicInputStep {
+    Init,
+    Output,
+    Program,
+    Done,
+}
 #[repr(C)]
 pub struct VerifyPublicInput {
-    pub a: Felt,
-    pub b: Felt,
+    step: VerifyPublicInputStep,
+    program_start: usize,
+    program_end: usize,
+    program_len: usize,
+    output_start: usize,
+    output_end: usize,
+    output_len: usize,
 }
 
 impl_type_identifiable!(VerifyPublicInput);
 
 impl VerifyPublicInput {
-    pub fn new(a: Felt, b: Felt) -> Self {
-        Self { a, b }
-    }
-    fn push_input<T: BidirectionalStack>(inputs: &[Felt], stack: &mut T) {
-        // Pad input with 1 followed by 0's (if necessary).
-        let mut values = inputs.to_owned();
-        values.push(Felt::ONE);
-        values.resize(values.len().div_ceil(2) * 2, Felt::ZERO);
-
-        assert!(values.len() % 2 == 0);
-
-        values.iter().rev().for_each(|value| {
-            stack.push_front(&value.to_bytes_be()).unwrap();
-        });
-        stack.push_front(&Felt::ZERO.to_bytes_be()).unwrap();
-        stack.push_front(&Felt::ZERO.to_bytes_be()).unwrap();
-        stack.push_front(&Felt::ZERO.to_bytes_be()).unwrap();
+    pub fn new() -> Self {
+        Self {
+            step: VerifyPublicInputStep::Init,
+            program_start: 0,
+            program_end: 0,
+            output_start: 0,
+            output_end: 0,
+            program_len: 0,
+            output_len: 0,
+        }
     }
 }
 
 impl Executable for VerifyPublicInput {
     fn execute<T: BidirectionalStack>(&mut self, stack: &mut T) -> Vec<Vec<u8>> {
-        let proof_reference: &mut [u8] = stack.get_proof_reference();
-        let proof: &mut StarkProof = cast_slice_to_struct::<StarkProof>(proof_reference);
-        let public_segments = &proof.public_input.segments;
-        let output_start = public_segments.get(2).unwrap().begin_addr;
-        let output_end = public_segments.get(2).unwrap().stop_ptr;
-        let output_len: usize = (output_end - output_start).try_into().unwrap();
-        let start = proof.public_input.main_page.0.len() - output_len;
-        let end = proof.public_input.main_page.0.len();
-        let memory = proof.public_input.main_page.0.as_slice();
-        let output = &memory[start..end];
-        let output: Vec<Felt> = output.iter().map(|m| m.value).collect();
-        Self::push_input(&output, stack);
-        Self::push_input(&output, stack);
-        vec![HashPublicInputs::new(output_len, output_len).to_vec_with_type_tag()]
+        match self.step {
+            VerifyPublicInputStep::Init => {
+                let proof_reference: &mut [u8] = stack.get_proof_reference();
+                let proof: &mut StarkProof = cast_slice_to_struct::<StarkProof>(proof_reference);
+                let public_segments = &proof.public_input.segments;
+
+                let initial_pc: usize = public_segments
+                    .get(segments::PROGRAM)
+                    .unwrap()
+                    .begin_addr
+                    .try_into()
+                    .unwrap();
+                let initial_fp: usize = public_segments
+                    .get(segments::EXECUTION)
+                    .unwrap()
+                    .begin_addr
+                    .try_into()
+                    .unwrap();
+
+                //1. Program segment
+                let program_end_pc: usize = initial_fp - 2;
+                let program_len = program_end_pc - initial_pc;
+
+                let output_start: usize = public_segments
+                    .get(segments::OUTPUT)
+                    .unwrap()
+                    .begin_addr
+                    .try_into()
+                    .unwrap();
+                let output_end: usize = public_segments
+                    .get(segments::OUTPUT)
+                    .unwrap()
+                    .stop_ptr
+                    .try_into()
+                    .unwrap();
+                let output_len: usize = (output_end - output_start).try_into().unwrap();
+                let output_start = proof.public_input.main_page.0.len() - output_len;
+
+                self.output_start = output_start;
+                self.output_end = proof.public_input.main_page.0.len();
+                self.output_len = output_len;
+
+                self.program_end = program_len;
+                self.program_len = program_len;
+
+                self.step = VerifyPublicInputStep::Output;
+                vec![]
+            }
+            VerifyPublicInputStep::Output => {
+                let inputs_len = self.output_len + 1;
+                let zero_count = inputs_len.div_ceil(2) * 2 - inputs_len;
+                for _ in 0..zero_count {
+                    stack.push_front(&Felt::ZERO.to_bytes_be()).unwrap();
+                }
+                stack.push_front(&Felt::ONE.to_bytes_be()).unwrap();
+
+                for i in (self.output_start..self.output_end).rev() {
+                    let proof_reference: &mut [u8] = stack.get_proof_reference();
+                    let proof: &mut StarkProof =
+                        cast_slice_to_struct::<StarkProof>(proof_reference);
+                    let memory = proof.public_input.main_page.0.as_slice();
+                    let item = memory[i].value;
+                    stack.push_front(&item.to_bytes_be()).unwrap();
+                }
+
+                stack.push_front(&Felt::ZERO.to_bytes_be()).unwrap();
+                stack.push_front(&Felt::ZERO.to_bytes_be()).unwrap();
+                stack.push_front(&Felt::ZERO.to_bytes_be()).unwrap();
+                self.step = VerifyPublicInputStep::Program;
+                vec![]
+            }
+            VerifyPublicInputStep::Program => {
+                let inputs_len = self.program_len + 1;
+                let zero_count = inputs_len.div_ceil(2) * 2 - inputs_len;
+                for _ in 0..zero_count {
+                    stack.push_front(&Felt::ZERO.to_bytes_be()).unwrap();
+                }
+
+                stack.push_front(&Felt::ONE.to_bytes_be()).unwrap();
+                for i in (self.program_start..self.program_end).rev() {
+                    let proof_reference: &mut [u8] = stack.get_proof_reference();
+                    let proof: &mut StarkProof =
+                        cast_slice_to_struct::<StarkProof>(proof_reference);
+                    let memory = proof.public_input.main_page.0.as_slice();
+                    let item = memory[i].value;
+                    stack.push_front(&item.to_bytes_be()).unwrap();
+                }
+                stack.push_front(&Felt::ZERO.to_bytes_be()).unwrap();
+                stack.push_front(&Felt::ZERO.to_bytes_be()).unwrap();
+                stack.push_front(&Felt::ZERO.to_bytes_be()).unwrap();
+
+                self.step = VerifyPublicInputStep::Done;
+
+                vec![HashPublicInputs::new(self.program_len, self.output_len).to_vec_with_type_tag()]
+            }
+            VerifyPublicInputStep::Done => {
+                vec![]
+            }
+        }
     }
 
     fn is_finished(&mut self) -> bool {
-        true
+        self.step == VerifyPublicInputStep::Done
     }
 }

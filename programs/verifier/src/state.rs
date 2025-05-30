@@ -9,9 +9,9 @@ const LENGTH_SIZE: usize = 2;
 #[repr(C)]
 #[derive(Debug)]
 pub struct BidirectionalStackAccount {
-    pub proof: StarkProof,
     pub front_index: usize,
     pub back_index: usize,
+    pub proof: StarkProof,
     pub buffer: [u8; CAPACITY],
 }
 impl Default for BidirectionalStackAccount {

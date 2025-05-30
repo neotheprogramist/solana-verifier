@@ -2,20 +2,31 @@ use std::{path::Path, time::Duration};
 
 use client::{initialize_client, setup_payer, setup_program, ClientError, Config};
 use solana_sdk::{
+    compute_budget::ComputeBudgetInstruction,
     instruction::{AccountMeta, Instruction},
     signature::Keypair,
     signer::Signer,
     system_instruction,
     transaction::Transaction,
 };
-use utils::Executable;
-use stark::{felt::Felt, stark_proof::VerifyPublicInput, swiftness::stark::types::cast_struct_to_slice};
+use stark::{
+    felt::Felt,
+    stark_proof::VerifyPublicInput,
+    swiftness::stark::types::{cast_struct_to_slice, StarkProof},
+};
 use swiftness_proof_parser::{json_parser, transform::TransformTo, StarkProof as StarkProofParser};
 use utils::AccountCast;
 use utils::BidirectionalStack;
+use utils::Executable;
 use verifier::{instruction::VerifierInstruction, state::BidirectionalStackAccount};
 
 pub const CHUNK_SIZE: usize = 1000;
+
+pub struct Input {
+    pub front_index: u32,
+    pub back_index: u32,
+    pub proof: StarkProof,
+}
 fn main() -> client::Result<()> {
     let config = Config::parse_args();
     let client = initialize_client(&config)?;
@@ -51,16 +62,10 @@ fn main() -> client::Result<()> {
     );
 
     let signature = client.send_and_confirm_transaction(&create_account_tx)?;
-    println!("Account created successfully: {}", signature);
-    println!("\nSet Proof on Solana");
-    println!("====================");
-    let input = include_str!("../../example_proof/saya.json");
-    let proof_json = serde_json::from_str::<json_parser::StarkProof>(input).unwrap();
-    let proof = StarkProofParser::try_from(proof_json).unwrap();
-    
-    let mut proof_verifier = proof.transform_to();
-    let proof_bytes = cast_struct_to_slice(&mut proof_verifier);
 
+    let mut input: [u64; 2] = [0, 65536];
+    let proof_bytes = cast_struct_to_slice(&mut input);
+    let new_offset = proof_bytes.len();
     println!("Proof bytes in kb: {:?}", proof_bytes.len() / 1024);
     let instructions = proof_bytes
         .chunks(CHUNK_SIZE)
@@ -68,7 +73,44 @@ fn main() -> client::Result<()> {
         .map(|(i, chunk)| {
             Instruction::new_with_borsh(
                 program_id,
-                &VerifierInstruction::SetProof(i * CHUNK_SIZE, chunk.to_vec()),
+                &VerifierInstruction::SetAccountData(i * CHUNK_SIZE, chunk.to_vec()),
+                vec![AccountMeta::new(stack_account.pubkey(), false)],
+            )
+        })
+        .collect::<Vec<_>>();
+
+    println!("Instructions number: {:?}", instructions.len());
+    // std::thread::sleep(Duration::from_secs(10));
+    for (i, instruction) in instructions.iter().enumerate() {
+        let set_proof_tx = Transaction::new_signed_with_payer(
+            &[instruction.clone()],
+            Some(&payer.pubkey()),
+            &[&payer],
+            client.get_latest_blockhash()?,
+        );
+        let set_proof_signature: solana_sdk::signature::Signature =
+            client.send_and_confirm_transaction(&set_proof_tx)?;
+        println!("Set proof: {}: {}", i, set_proof_signature);
+    }
+
+    println!("Account created successfully: {}", signature);
+    println!("\nSet Proof on Solana");
+    println!("====================");
+    let input = include_str!("../../example_proof/saya.json");
+    let proof_json = serde_json::from_str::<json_parser::StarkProof>(input).unwrap();
+    let proof = StarkProofParser::try_from(proof_json).unwrap();
+
+    let mut proof_verifier = proof.transform_to();
+
+    let proof_bytes = cast_struct_to_slice(&mut proof_verifier);
+    println!("Proof bytes in kb: {:?}", proof_bytes.len() / 1024);
+    let instructions = proof_bytes
+        .chunks(CHUNK_SIZE)
+        .enumerate()
+        .map(|(i, chunk)| {
+            Instruction::new_with_borsh(
+                program_id,
+                &VerifierInstruction::SetAccountData(new_offset + (i * CHUNK_SIZE), chunk.to_vec()),
                 vec![AccountMeta::new(stack_account.pubkey(), false)],
             )
         })
@@ -87,9 +129,8 @@ fn main() -> client::Result<()> {
             client.send_and_confirm_transaction(&set_proof_tx)?;
         println!("Set proof: {}: {}", i, set_proof_signature);
     }
-    
-    let task = VerifyPublicInput::new(Felt::from_hex("0x1").unwrap(), Felt::from_hex("0x2").unwrap());
-    
+
+    let task = VerifyPublicInput::new();
 
     let verify_public_input_ix = Instruction::new_with_borsh(
         program_id,
@@ -107,6 +148,8 @@ fn main() -> client::Result<()> {
         client.send_and_confirm_transaction(&verify_public_input_tx)?;
     println!("Verify public input: {:?}", verify_public_input_signature);
 
+    let limit_instructions = ComputeBudgetInstruction::set_compute_unit_limit(800_000);
+
     let mut steps = 0;
     loop {
         // Execute the task
@@ -117,7 +160,7 @@ fn main() -> client::Result<()> {
         );
 
         let execute_tx = Transaction::new_signed_with_payer(
-            &[execute_ix],
+            &[limit_instructions.clone(), execute_ix],
             Some(&payer.pubkey()),
             &[&payer],
             client.get_latest_blockhash()?,

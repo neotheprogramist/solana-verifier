@@ -8,7 +8,9 @@ use solana_sdk::{
     system_instruction,
     transaction::Transaction,
 };
-use stark::{felt::Felt, stark_proof::HashPublicInputs};
+use stark::{
+    felt::Felt, stark_proof::HashPublicInputs, swiftness::stark::types::cast_struct_to_slice,
+};
 use utils::BidirectionalStack;
 use utils::{AccountCast, Executable};
 use verifier::{instruction::VerifierInstruction, state::BidirectionalStackAccount};
@@ -49,17 +51,23 @@ fn main() -> client::Result<()> {
     let signature = client.send_and_confirm_transaction(&create_account_tx)?;
     println!("Account created successfully: {}", signature);
 
+    let mut stack_init_input: [u64; 2] = [0, 65536];
+    let stack_init_bytes = cast_struct_to_slice(&mut stack_init_input);
+    // Initialize the account
     let init_ix = Instruction::new_with_borsh(
         program_id,
-        &VerifierInstruction::Initialize,
+        &VerifierInstruction::SetAccountData(0, stack_init_bytes.to_vec()),
         vec![AccountMeta::new(stack_account.pubkey(), false)],
     );
+
+    // Send initialize transaction
     let init_tx = Transaction::new_signed_with_payer(
         &[init_ix],
         Some(&payer.pubkey()),
         &[&payer],
         client.get_latest_blockhash()?,
     );
+
     let init_signature = client.send_and_confirm_transaction(&init_tx)?;
     println!("Account initialized: {}", init_signature);
 
