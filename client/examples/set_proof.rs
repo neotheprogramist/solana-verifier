@@ -1,5 +1,3 @@
-use std::{path::Path, time::Duration};
-
 use client::{initialize_client, setup_payer, setup_program, ClientError, Config};
 use solana_sdk::{
     instruction::{AccountMeta, Instruction},
@@ -9,6 +7,7 @@ use solana_sdk::{
     transaction::Transaction,
 };
 use stark::swiftness::stark::types::{cast_struct_to_slice, StarkProof};
+use std::path::Path;
 use swiftness_proof_parser::{json_parser, transform::TransformTo, StarkProof as StarkProofParser};
 use utils::AccountCast;
 use utils::BidirectionalStack;
@@ -21,15 +20,17 @@ pub struct Input {
     pub back_index: usize,
     pub proof: StarkProof,
 }
-fn main() -> client::Result<()> {
-    let config = Config::parse_args();
-    let client = initialize_client(&config)?;
 
-    let payer = setup_payer(&client, &config)?;
+#[tokio::main]
+async fn main() -> client::Result<()> {
+    let config = Config::parse_args();
+    let client = initialize_client(&config).await?;
+
+    let payer = setup_payer(&client, &config).await?;
 
     let program_path = Path::new("target/deploy/verifier.so");
 
-    let program_id = setup_program(&client, &payer, &config, program_path)?;
+    let program_id = setup_program(&client, &payer, &config, program_path).await?;
 
     println!("Using program ID: {}", program_id);
 
@@ -43,7 +44,7 @@ fn main() -> client::Result<()> {
     let create_account_ix = system_instruction::create_account(
         &payer.pubkey(),
         &stack_account.pubkey(),
-        client.get_minimum_balance_for_rent_exemption(space)?,
+        client.get_minimum_balance_for_rent_exemption(space).await?,
         space as u64,
         &program_id,
     );
@@ -52,10 +53,12 @@ fn main() -> client::Result<()> {
         &[create_account_ix],
         Some(&payer.pubkey()),
         &[&payer, &stack_account],
-        client.get_latest_blockhash()?,
+        client.get_latest_blockhash().await?,
     );
 
-    let signature = client.send_and_confirm_transaction(&create_account_tx)?;
+    let signature = client
+        .send_and_confirm_transaction(&create_account_tx)
+        .await?;
     println!("Account created successfully: {}", signature);
     println!("\nSet Proof on Solana");
     println!("====================");
@@ -84,21 +87,21 @@ fn main() -> client::Result<()> {
         .collect::<Vec<_>>();
 
     println!("Instructions number: {:?}", instructions.len());
-    std::thread::sleep(Duration::from_secs(10));
     for (i, instruction) in instructions.iter().enumerate() {
         let set_proof_tx = Transaction::new_signed_with_payer(
             &[instruction.clone()],
             Some(&payer.pubkey()),
             &[&payer],
-            client.get_latest_blockhash()?,
+            client.get_latest_blockhash().await?,
         );
         let set_proof_signature: solana_sdk::signature::Signature =
-            client.send_and_confirm_transaction(&set_proof_tx)?;
+            client.send_transaction(&set_proof_tx).await?;
         println!("Set proof: {}: {}", i, set_proof_signature);
     }
 
     let account_data_after_set_proof = client
         .get_account_data(&stack_account.pubkey())
+        .await
         .map_err(ClientError::SolanaClientError)?;
 
     let stack = BidirectionalStackAccount::cast(&account_data_after_set_proof);

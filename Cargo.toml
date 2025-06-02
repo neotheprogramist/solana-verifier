@@ -19,3 +19,4 @@ utils = { path = "./programs/utils" }
 
 arithmetic = { path = "./tasks/arithmetic" }
 stark = { path = "./tasks/stark" }
+

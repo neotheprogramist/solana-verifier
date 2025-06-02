@@ -14,15 +14,17 @@ use stark::{
 use utils::BidirectionalStack;
 use utils::{AccountCast, Executable};
 use verifier::{instruction::VerifierInstruction, state::BidirectionalStackAccount};
-fn main() -> client::Result<()> {
-    let config = Config::parse_args();
-    let client = initialize_client(&config)?;
 
-    let payer = setup_payer(&client, &config)?;
+#[tokio::main]
+async fn main() -> client::Result<()> {
+    let config = Config::parse_args();
+    let client = initialize_client(&config).await?;
+
+    let payer = setup_payer(&client, &config).await?;
 
     let program_path = Path::new("target/deploy/verifier.so");
 
-    let program_id = setup_program(&client, &payer, &config, program_path)?;
+    let program_id = setup_program(&client, &payer, &config, program_path).await?;
 
     println!("Using program ID: {}", program_id);
 
@@ -36,7 +38,7 @@ fn main() -> client::Result<()> {
     let create_account_ix = system_instruction::create_account(
         &payer.pubkey(),
         &stack_account.pubkey(),
-        client.get_minimum_balance_for_rent_exemption(space)?,
+        client.get_minimum_balance_for_rent_exemption(space).await?,
         space as u64,
         &program_id,
     );
@@ -45,10 +47,10 @@ fn main() -> client::Result<()> {
         &[create_account_ix],
         Some(&payer.pubkey()),
         &[&payer, &stack_account],
-        client.get_latest_blockhash()?,
+        client.get_latest_blockhash().await?,
     );
 
-    let signature = client.send_and_confirm_transaction(&create_account_tx)?;
+    let signature = client.send_and_confirm_transaction(&create_account_tx).await?;
     println!("Account created successfully: {}", signature);
 
     let mut stack_init_input: [u64; 2] = [0, 65536];
@@ -65,14 +67,15 @@ fn main() -> client::Result<()> {
         &[init_ix],
         Some(&payer.pubkey()),
         &[&payer],
-        client.get_latest_blockhash()?,
+        client.get_latest_blockhash().await?,
     );
 
-    let init_signature = client.send_and_confirm_transaction(&init_tx)?;
+    let init_signature = client.send_and_confirm_transaction(&init_tx).await?;
     println!("Account initialized: {}", init_signature);
 
     let account_data_after_init = client
         .get_account_data(&stack_account.pubkey())
+        .await
         .map_err(ClientError::SolanaClientError)?;
     let stack = BidirectionalStackAccount::cast(&account_data_after_init);
     println!("Stack front_index: {}", stack.front_index);
@@ -168,9 +171,9 @@ fn main() -> client::Result<()> {
                 &[push_data_ix],
                 Some(&payer.pubkey()),
                 &[&payer],
-                client.get_latest_blockhash()?,
+                client.get_latest_blockhash().await?,
             );
-            let push_signature = client.send_and_confirm_transaction(&push_data_tx)?;
+            let push_signature = client.send_and_confirm_transaction(&push_data_tx).await?;
             println!("pushed data signature: {}", push_signature);
         }
         for _ in 0..3 {
@@ -183,9 +186,9 @@ fn main() -> client::Result<()> {
                 &[push_data_ix],
                 Some(&payer.pubkey()),
                 &[&payer],
-                client.get_latest_blockhash()?,
+                client.get_latest_blockhash().await?,
             );
-            let push_signature = client.send_and_confirm_transaction(&push_data_tx)?;
+            let push_signature = client.send_and_confirm_transaction(&push_data_tx).await?;
             println!("pushed zero value signature: {}", push_signature);
         }
     }
@@ -202,10 +205,10 @@ fn main() -> client::Result<()> {
         &[push_task_ix],
         Some(&payer.pubkey()),
         &[&payer],
-        client.get_latest_blockhash()?,
+        client.get_latest_blockhash().await?,
     );
 
-    let push_signature = client.send_and_confirm_transaction(&push_tx)?;
+    let push_signature = client.send_and_confirm_transaction(&push_tx).await?;
     println!("\nHash Public Inputs task pushed: {}", push_signature);
 
     let mut steps = 0;
@@ -221,16 +224,17 @@ fn main() -> client::Result<()> {
             &[execute_ix],
             Some(&payer.pubkey()),
             &[&payer],
-            client.get_latest_blockhash()?,
+            client.get_latest_blockhash().await?,
         );
 
-        let _execute_signature = client.send_and_confirm_transaction(&execute_tx)?;
+        let _execute_signature = client.send_and_confirm_transaction(&execute_tx).await?;
         println!(".");
         steps += 1;
 
         // Check stack state
         let account_data = client
             .get_account_data(&stack_account.pubkey())
+            .await
             .map_err(ClientError::SolanaClientError)?;
         let stack = BidirectionalStackAccount::cast(&account_data);
         if stack.is_empty_back() {
@@ -242,6 +246,7 @@ fn main() -> client::Result<()> {
     // Read and display the result
     let mut account_data = client
         .get_account_data(&stack_account.pubkey())
+        .await
         .map_err(ClientError::SolanaClientError)?;
     let stack = BidirectionalStackAccount::cast_mut(&mut account_data);
     let result_program_hash = Felt::from_bytes_be_slice(stack.borrow_front());

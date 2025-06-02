@@ -1,4 +1,4 @@
-use std::{path::Path, time::Duration};
+use std::path::Path;
 
 use client::{initialize_client, setup_payer, setup_program, ClientError, Config};
 use solana_sdk::{
@@ -27,15 +27,16 @@ pub struct Input {
     pub back_index: u32,
     pub proof: StarkProof,
 }
-fn main() -> client::Result<()> {
+#[tokio::main]
+async fn main() -> client::Result<()> {
     let config = Config::parse_args();
-    let client = initialize_client(&config)?;
+    let client = initialize_client(&config).await?;
 
-    let payer = setup_payer(&client, &config)?;
+    let payer = setup_payer(&client, &config).await?;
 
     let program_path = Path::new("target/deploy/verifier.so");
 
-    let program_id = setup_program(&client, &payer, &config, program_path)?;
+    let program_id = setup_program(&client, &payer, &config, program_path).await?;
 
     println!("Using program ID: {}", program_id);
 
@@ -49,7 +50,7 @@ fn main() -> client::Result<()> {
     let create_account_ix = system_instruction::create_account(
         &payer.pubkey(),
         &stack_account.pubkey(),
-        client.get_minimum_balance_for_rent_exemption(space)?,
+        client.get_minimum_balance_for_rent_exemption(space).await?,
         space as u64,
         &program_id,
     );
@@ -58,10 +59,10 @@ fn main() -> client::Result<()> {
         &[create_account_ix],
         Some(&payer.pubkey()),
         &[&payer, &stack_account],
-        client.get_latest_blockhash()?,
+        client.get_latest_blockhash().await?,
     );
 
-    let signature = client.send_and_confirm_transaction(&create_account_tx)?;
+    let signature = client.send_and_confirm_transaction(&create_account_tx).await?;
 
     let mut input: [u64; 2] = [0, 65536];
     let proof_bytes = cast_struct_to_slice(&mut input);
@@ -86,10 +87,10 @@ fn main() -> client::Result<()> {
             &[instruction.clone()],
             Some(&payer.pubkey()),
             &[&payer],
-            client.get_latest_blockhash()?,
+            client.get_latest_blockhash().await?,
         );
         let set_proof_signature: solana_sdk::signature::Signature =
-            client.send_and_confirm_transaction(&set_proof_tx)?;
+            client.send_and_confirm_transaction(&set_proof_tx).await?;
         println!("Set proof: {}: {}", i, set_proof_signature);
     }
 
@@ -117,16 +118,15 @@ fn main() -> client::Result<()> {
         .collect::<Vec<_>>();
 
     println!("Instructions number: {:?}", instructions.len());
-    std::thread::sleep(Duration::from_secs(10));
     for (i, instruction) in instructions.iter().enumerate() {
         let set_proof_tx = Transaction::new_signed_with_payer(
             &[instruction.clone()],
             Some(&payer.pubkey()),
             &[&payer],
-            client.get_latest_blockhash()?,
+            client.get_latest_blockhash().await?,
         );
         let set_proof_signature: solana_sdk::signature::Signature =
-            client.send_and_confirm_transaction(&set_proof_tx)?;
+            client.send_transaction(&set_proof_tx).await?;
         println!("Set proof: {}: {}", i, set_proof_signature);
     }
 
@@ -142,10 +142,10 @@ fn main() -> client::Result<()> {
         &[verify_public_input_ix],
         Some(&payer.pubkey()),
         &[&payer],
-        client.get_latest_blockhash()?,
+        client.get_latest_blockhash().await?,
     );
     let verify_public_input_signature: solana_sdk::signature::Signature =
-        client.send_and_confirm_transaction(&verify_public_input_tx)?;
+        client.send_and_confirm_transaction(&verify_public_input_tx).await?;
     println!("Verify public input: {:?}", verify_public_input_signature);
 
     let limit_instructions = ComputeBudgetInstruction::set_compute_unit_limit(800_000);
@@ -163,16 +163,16 @@ fn main() -> client::Result<()> {
             &[limit_instructions.clone(), execute_ix],
             Some(&payer.pubkey()),
             &[&payer],
-            client.get_latest_blockhash()?,
+            client.get_latest_blockhash().await?,
         );
-
-        let _execute_signature = client.send_and_confirm_transaction(&execute_tx)?;
-        println!(".");
+        let execute_signature = client.send_and_confirm_transaction(&execute_tx).await?;
+        println!("Execute: {:?}", execute_signature);
         steps += 1;
-
+        println!("steps: {}", steps);
         // Check stack state
         let account_data = client
             .get_account_data(&stack_account.pubkey())
+            .await
             .map_err(ClientError::SolanaClientError)?;
         let stack = BidirectionalStackAccount::cast(&account_data);
         if stack.is_empty_back() {
@@ -184,6 +184,7 @@ fn main() -> client::Result<()> {
     // Read and display the result
     let mut account_data = client
         .get_account_data(&stack_account.pubkey())
+        .await
         .map_err(ClientError::SolanaClientError)?;
     let stack = BidirectionalStackAccount::cast_mut(&mut account_data);
     let result_program_hash = Felt::from_bytes_be_slice(stack.borrow_front());
